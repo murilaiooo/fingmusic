@@ -13,14 +13,15 @@ import { clamp, mtof } from '../core/util.js';
 import { disconnectAll } from './dsp.js';
 
 // ───────────── cache de buffers renderizados (LRU por contexto)
-const MAX_BUFFERS = 110;
+const MAX_BUFFERS = 160;
 const caches = new WeakMap();
 function cacheFor(ctx) { let c = caches.get(ctx); if (!c) caches.set(ctx, (c = new Map())); return c; }
 function getBuffer(ctx, key, render) {
   const cache = cacheFor(ctx);
   if (cache.has(key)) { const b = cache.get(key); cache.delete(key); cache.set(key, b); return b; }
-  const data = render(ctx.sampleRate);
-  const buf = ctx.createBuffer(1, data.length, ctx.sampleRate);
+  const sr = Math.min(ctx.sampleRate, 32000);
+  const data = render(sr);
+  const buf = ctx.createBuffer(1, data.length, sr);
   buf.getChannelData(0).set(data);
   cache.set(key, buf);
   if (cache.size > MAX_BUFFERS) cache.delete(cache.keys().next().value);
@@ -28,7 +29,7 @@ function getBuffer(ctx, key, render) {
 }
 export const bufferCacheSize = (ctx) => cacheFor(ctx).size;
 
-const velBucket = (v) => clamp(Math.round(v * 4), 1, 6) / 4;
+const velBucket = (v) => v < .5 ? .5 : .8;
 const velGain = (v) => 0.1 + 0.9 * Math.pow(clamp(v, 0, 1.5), 1.4);
 
 // ───────────── técnicas para cordas
@@ -55,6 +56,25 @@ function pluckParams(inst, midi, vel, pos, tech) {
   return p;
 }
 
+// Classic harp: the original noise-excited Karplus–Strong timbre, with
+// fractional pitch corrected by the source sample clock and a short fade.
+export function classicHarpSample(midi, sr = 32000) {
+  const freq=mtof(midi), period=Math.max(2,Math.round(sr/freq-.5));
+  const ring=new Float32Array(period), out=new Float32Array(Math.floor(sr*3));
+  let seed=(midi*7919+12345)>>>0;
+  for(let i=0;i<period;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;ring[i]=seed/2147483648-1;}
+  for(let i=1;i<period;i++) ring[i]=(ring[i]+ring[i-1])*.5;
+  let p=0;
+  for(let i=0;i<out.length;i++){const nx=p+1===period?0:p+1;const a=ring[p];out[i]=a;ring[p]=(a+ring[nx])*.499;p=nx;}
+  const fade=Math.floor(sr*.075);
+  for(let i=0;i<fade;i++)out[out.length-1-i]*=i/fade;
+  return out;
+}
+function pluckSample(inst,midi,tech,sr) {
+  if(inst.id==='harp' && (tech==='finger'||tech==='snap')) return classicHarpSample(midi,sr);
+  return renderPluck({...pluckParams(inst,midi,.8,null,tech),sr});
+}
+
 /** Vozes ativas (para limite de polifonia e roubo de vozes). */
 const active = new Set();
 export const MAX_VOICES = 40;
@@ -63,7 +83,7 @@ function register(v) {
   active.add(v);
   if (active.size > MAX_VOICES) {
     let oldest = null; for (const x of active) if (!oldest || x.started < oldest.started) oldest = x;
-    oldest?.kill(0.02);
+    if (oldest) { active.delete(oldest); oldest.kill(0.02); }
   }
 }
 
@@ -92,11 +112,14 @@ function pluckVoice(ctx, dest, inst, opts, when, vel) {
   const tech = opts.tech ?? inst.tech ?? 'finger';
   const t = TECH[tech] ?? {};
   const v = clamp(vel * (t.vel ?? 1), 0.02, 1.5);
-  const posB = opts.pos == null ? null : Math.round(clamp(opts.pos, 0, 1) * 4) / 4;
-  const vb = velBucket(v);
+  // Position and force affect the native filter/gain, not the cache key.
+  const posB = null;
+  const vb = .8;
   const key = `p|${inst.id}|${opts.midi}|${vb}|${posB}|${tech}`;
-  const buf = getBuffer(ctx, key, (sr) => renderPluck({ ...pluckParams(inst, opts.midi, vb, posB, tech), sr }));
+  const buf = getBuffer(ctx, key, (sr) => pluckSample(inst, opts.midi, tech, sr));
   const src = ctx.createBufferSource(); src.buffer = buf;
+  const baseRate = inst.id === 'harp' && (tech === 'finger' || tech === 'snap') ? mtof(opts.midi) * (Math.max(2, Math.round(buf.sampleRate / mtof(opts.midi) - .5)) + .5) / buf.sampleRate : 1;
+  src.playbackRate.value = baseRate;
   const g = ctx.createGain(); g.gain.value = velGain(v) * (inst.gain ?? 1) * 0.55;
   const pan = makePanner(ctx, opts.pan ?? 0, dest);
   let chain = src, filt = null;
@@ -109,11 +132,16 @@ function pluckVoice(ctx, dest, inst, opts, when, vel) {
     filt.frequency.linearRampToValueAtTime(peak, when + fe.attack);
     filt.frequency.setTargetAtTime(fe.to, when + fe.attack, fe.decay / 3);
     src.connect(filt); chain = filt;
+  } else {
+    filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.Q.value = .45;
+    const pos = opts.pos ?? .35;
+    filt.frequency.value = Math.min(14000, Math.max(mtof(opts.midi)*2, (inst.id === 'harp' ? 4500 : 5800) * (.58 + .65 * v) * (1.22 - .45 * pos)));
+    src.connect(filt); chain = filt;
   }
   chain.connect(g); g.connect(pan.out);
   src.start(when);
   return handle(ctx, inst, opts.midi, when, src, g, [src, g, filt, pan.node], (semi, time, at) => {
-    const r = 2 ** (semi / 12), t0 = Math.max(ctx.currentTime, at ?? 0);
+    const r = baseRate * 2 ** (semi / 12), t0 = Math.max(ctx.currentTime, at ?? 0);
     src.playbackRate.cancelScheduledValues(t0);
     src.playbackRate.setValueAtTime(src.playbackRate.value, t0);
     if (time > 0) src.playbackRate.linearRampToValueAtTime(r, t0 + time); else src.playbackRate.setValueAtTime(r, t0);
@@ -145,17 +173,20 @@ const MODAL_KINDS = {
 };
 
 function bufferVoice(ctx, dest, inst, opts, when, vel) {
-  const vb = velBucket(vel);
-  const key = `b|${inst.id}|${opts.midi}|${vb}`;
+  const vb = .8;
+  // Share a sample across adjacent pitches, so dense chords do not block input.
+  const anchor = Math.max(0, Math.min(127, Math.round(opts.midi / 3) * 3));
+  const ratio = 2 ** ((opts.midi - anchor) / 12);
+  const key = `b|${inst.id}|${anchor}|${vb}`;
   const buf = getBuffer(ctx, key, (sr) => (inst.engine === 'fm'
-    ? renderFM({ ...inst.params, freq: mtof(opts.midi), vel: vb, sr, dur: 3.2 })
-    : renderModal({ ...MODAL_KINDS[inst.params.kind](opts.midi), freq: mtof(opts.midi), vel: vb, sr })));
-  const src = ctx.createBufferSource(); src.buffer = buf;
+    ? renderFM({ ...inst.params, freq: mtof(anchor), vel: vb, sr, dur: 3.2 })
+    : renderModal({ ...MODAL_KINDS[inst.params.kind](anchor), freq: mtof(anchor), vel: vb, sr })));
+  const src = ctx.createBufferSource(); src.buffer = buf; src.playbackRate.value = ratio;
   const g = ctx.createGain(); g.gain.value = velGain(vel) * (inst.gain ?? 1) * 0.5;
   const pan = makePanner(ctx, opts.pan ?? 0, dest);
   src.connect(g); g.connect(pan.out); src.start(when);
   const h = handle(ctx, inst, opts.midi, when, src, g, [src, g, pan.node], (semi, time) => {
-    const t0 = ctx.currentTime; src.playbackRate.setTargetAtTime(2 ** (semi / 12), t0, Math.max(0.005, time / 3));
+    const t0 = ctx.currentTime; src.playbackRate.setTargetAtTime(ratio * 2 ** (semi / 12), t0, Math.max(0.005, time / 3));
   }, inst.release ?? 0.12);
   if (opts.dur != null && inst.sustain) h.noteOff(when + opts.dur);
   return h;
@@ -230,22 +261,23 @@ function handle(ctx, inst, midi, when, src, gainNode, nodes, bend, release, extr
 }
 
 /** Pré-renderiza buffers em fatias ociosas para evitar latência na 1ª nota. */
-export function prewarm(ctx, inst, midis, vels = [0.5, 0.75]) {
-  if (!ctx || !['pluck', 'modal', 'fm'].includes(inst.engine)) return;
-  const jobs = [];
-  for (const m of midis) for (const v of vels) jobs.push([m, v]);
-  const idle = globalThis.requestIdleCallback ?? ((fn) => setTimeout(() => fn({ timeRemaining: () => 8 }), 30));
-  const step = (deadline) => {
-    while (jobs.length && deadline.timeRemaining() > 4) {
-      const [m, v] = jobs.shift(); const vb = velBucket(v);
-      if (inst.engine === 'pluck') {
-        const tech = inst.tech ?? 'finger';
-        getBuffer(ctx, `p|${inst.id}|${m}|${vb}|null|${tech}`, (sr) => renderPluck({ ...pluckParams(inst, m, vb, null, tech), sr }));
-      } else {
-        getBuffer(ctx, `b|${inst.id}|${m}|${vb}`, (sr) => (inst.engine === 'fm' ? renderFM({ ...inst.params, freq: mtof(m), vel: vb, sr, dur: 3.2 }) : renderModal({ ...MODAL_KINDS[inst.params.kind](m), freq: mtof(m), vel: vb, sr })));
-      }
+const warmGeneration = new WeakMap();
+export function prewarm(ctx, inst, midis) {
+  if (!ctx) return;
+  const generation=(warmGeneration.get(ctx)??0)+1; warmGeneration.set(ctx,generation);
+  if (!['pluck','modal','fm'].includes(inst.engine)) return;
+  const jobs=[...new Set(midis.map(m=>inst.engine==='pluck'?m:Math.max(0,Math.min(127,Math.round(m/3)*3))))];
+  const idle=globalThis.requestIdleCallback ?? (fn=>setTimeout(fn,40));
+  const step=()=>{
+    if(warmGeneration.get(ctx)!==generation || !jobs.length) return;
+    const m=jobs.shift();
+    if(inst.engine==='pluck'){
+      const tech=inst.tech??'finger';
+      getBuffer(ctx,`p|${inst.id}|${m}|0.8|null|${tech}`,sr=>pluckSample(inst,m,tech,sr));
+    }else{
+      getBuffer(ctx,`b|${inst.id}|${m}|0.8`,sr=>inst.engine==='fm'?renderFM({...inst.params,freq:mtof(m),vel:.8,sr,dur:3.2}):renderModal({...MODAL_KINDS[inst.params.kind](m),freq:mtof(m),vel:.8,sr}));
     }
-    if (jobs.length) idle(step);
+    if(jobs.length)idle(step);
   };
   idle(step);
 }
