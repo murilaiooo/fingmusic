@@ -106,7 +106,7 @@ const SCALES = {
 let scale = 'penta';
 const NAMES = ['Dó','Dó#','Ré','Ré#','Mi','Fá','Fá#','Sol','Sol#','Lá','Lá#','Si'];
 const TIPS = [8, 12, 16, 20];
-const INSTRUMENTS={harp:{base:48,count:9,color:260},guitar:{base:40,count:6,color:35},electric:{base:40,count:6,color:320},bass:{base:28,count:8,color:155},slap:{base:28,count:8,color:170},pick:{base:28,count:8,color:190},sub:{base:24,count:8,color:220},keys:{base:48,count:9,color:48},synth:{base:48,count:9,color:285},bell:{base:60,count:8,color:200}};
+const INSTRUMENTS={harp:{base:48,count:9,color:260},guitar:{base:36,count:6,color:35},electric:{base:36,count:6,color:320},bass:{base:24,count:8,color:155},slap:{base:24,count:8,color:170},pick:{base:24,count:8,color:190},sub:{base:24,count:8,color:220},keys:{base:48,count:9,color:48},synth:{base:48,count:9,color:285},bell:{base:60,count:8,color:200}};
 function degreeNote(i){const steps=SCALES[scale],midi=INSTRUMENTS[instrument].base+root+octave*12+Math.floor(i/steps.length)*12+steps[i%steps.length];return {midi,freq:440*2**((midi-69)/12),name:NAMES[((midi%12)+12)%12]+(Math.floor(midi/12)-1)}}
 function updateDock(){document.documentElement.style.setProperty('--dock',$('dock').offsetHeight+'px')}
 function bounds(){const t=Math.max(66,$('status').getBoundingClientRect().bottom+14),b=$('dock').getBoundingClientRect().top-12;return {top:t,bottom:Math.max(t+55,b),left:Math.max(16,W*.09),right:Math.min(W-16,W*.91)}}
@@ -204,7 +204,7 @@ function retune(){ for (const s of strings){ Object.assign(s,s.degree===undefine
 function pluck(s, vel, t, force){
   const now = performance.now();
   if (!force && (now - s.last < 140 || now - s.born < 350)) return;
-  s.last = now; s.amp = Math.min(2.3, .35 + vel*1.3); s.t0 = now;
+  s.kick=0;s.last = now; s.amp = Math.min(2.3, .35 + vel*1.3); s.t0 = now;
   const p = ptOn(s, t);
   play(s.freq, vel, p.x / W * 2 - 1);
   burst(p.x, p.y, s.hue, 8 + vel * 32 | 0, .6 + vel);
@@ -218,11 +218,11 @@ function burst(x, y, hue, n, pow){
   if (sparks.length > 700) sparks.splice(0, sparks.length - 700);
 }
 function clearAll(){for(const s of strings)for(let i=0;i<=6;i++){const p=ptOn(s,i/6);burst(p.x,p.y,s.hue,3,.8);}strings.length=0;presetActive=false;}
-function preset(){clearAll();const box=bounds(),n=INSTRUMENTS[instrument].count,horizontal=layout==='horizontal'||(layout==='auto'&&['bass','slap','pick','sub','electric','guitar'].includes(instrument));for(let i=0;i<n;i++){const t=i/(n-1);let a,b;if(horizontal){const y=box.top+(box.bottom-box.top)*(.08+.84*t);a={x:box.left,y};b={x:box.right,y};}else{const x=box.left+(box.right-box.left)*t;a={x,y:box.top+(box.bottom-box.top)*t*.25};b={x,y:box.bottom};}addString(a,b,true);const st=strings[strings.length-1];if(st){st.degree=i;Object.assign(st,degreeNote(i));st.hue=hueFor(st.midi);}}presetActive=true;}
+function preset(){for(const p of pointers.values())release(p.held,false);pointers.clear();for(const h of Object.values(hands)){release(h.held,false);h.held=null;h.drag=null;h.lock=false;h.prev={};}twoHand=null;clearAll();const box=bounds(),n=INSTRUMENTS[instrument].count,horizontal=layout==='horizontal'||(layout==='auto'&&['bass','slap','pick','sub','electric','guitar'].includes(instrument));for(let i=0;i<n;i++){const t=i/(n-1);let a,b;if(horizontal){const y=box.top+(box.bottom-box.top)*(.08+.84*t);a={x:box.left,y};b={x:box.right,y};}else{const x=box.left+(box.right-box.left)*t;a={x,y:box.top+(box.bottom-box.top)*t*.25};b={x,y:box.bottom};}addString(a,b,true);const st=strings[strings.length-1];if(st){st.degree=i;Object.assign(st,degreeNote(i));st.hue=hueFor(st.midi);}}presetActive=true;}
 function closest(p,limit=24){let best=null;for(const s of strings){if(s.grab)continue;const dx=s.b.x-s.a.x,dy=s.b.y-s.a.y,t=Math.max(.04,Math.min(.96,((p.x-s.a.x)*dx+(p.y-s.a.y)*dy)/(s.len*s.len))),q=ptOn(s,t),d=dist(p,q);if(d<limit&&(!best||d<best.d))best={s,t,d};}return best;}
 function grabAt(p){const hit=closest(p,Math.min(30,Math.max(15,W*.045)));if(!hit)return null;hit.s.grab={t:hit.t,offset:0};return hit.s;}
 function tug(s,p){if(!s?.grab)return;const q=ptOn(s,s.grab.t),nx=-(s.b.y-s.a.y)/s.len,ny=(s.b.x-s.a.x)/s.len,max=Math.min(115,Math.max(45,Math.min(W,H)*.24));s.grab.offset=Math.max(-max,Math.min(max,(p.x-q.x)*nx+(p.y-q.y)*ny));}
-function release(s,commit){if(!s?.grab)return;const {t,offset}=s.grab;s.grab=null;if(commit){s.kick=offset;pluck(s,Math.min(1.45,.24+Math.abs(offset)/62),t,true);}}
+function release(s,commit){if(!s?.grab)return;const {t,offset}=s.grab;s.grab=null;if(commit){pluck(s,Math.min(1.45,.24+Math.abs(offset)/62),t,true);s.kick=offset;}}
 
 /* interseção de segmentos: devolve posição t na corda ou -1 */
 function cross(p, q, a, b){
@@ -469,7 +469,7 @@ $('scale').onchange = e => { scale = e.target.value; retune(); };
 $('pts').onclick = e => { showPts = !showPts; e.currentTarget.classList.toggle('on', showPts); };
 function setMode(m){for(const p of pointers.values())release(p.held,false);pointers.clear();for(const h of Object.values(hands)){release(h.held,false);h.held=null;h.drag=null;h.lock=false;h.prev={};}twoHand=null;mode=m;$('mode').classList.toggle('on',m!=='play');$('mode').textContent={play:'Tocar',pull:'Puxar',draw:'Desenhar'}[m];syncUI();}
 $('mode').onclick=()=>setMode({play:'pull',pull:'draw',draw:'play'}[mode]);
-$('instrument').onchange=e=>{instrument=e.target.value;if(['bass','slap','pick','sub'].includes(instrument)){$('root').value='4';root=4;}else{$('root').value='0';root=0;}preset();};
+$('instrument').onchange=e=>{instrument=e.target.value;preset();};
 $('root').innerHTML=NAMES.map((n,i)=>'<option value="'+i+'">'+n+'</option>').join('');
 $('root').onchange=e=>{root=+e.target.value;retune();};$('octave').onchange=e=>{octave=+e.target.value;retune();};$('layout').onchange=e=>{layout=e.target.value;preset();};
 $('openSettings').onclick=()=>{const h=$('settings').classList.toggle('hidden');$('openSettings').setAttribute('aria-expanded',String(!h));};
