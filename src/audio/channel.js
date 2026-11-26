@@ -84,7 +84,7 @@ export class Channel {
   _applyGain() { const g = this._mute ? 0 : clamp(this._vol, 0, 1.5) ** 1.6; this.gain.gain.setTargetAtTime(g, this.ctx.currentTime, 0.015); }
   setPan(p) { if (this.panner) this.panner.pan.setTargetAtTime(clamp(p, -1, 1), this.ctx.currentTime, 0.02); }
 
-  play(opts) { return startVoice(this.ctx, this.voiceIn, this.inst, opts); }
+  play(opts) { return startVoice(this.ctx, this.voiceIn, opts.inst ?? this.inst, opts); }
 
   dispose() {
     this.inserts?.dispose();
