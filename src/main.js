@@ -31,20 +31,20 @@ ui.register('playground', playgroundMode(ui));
 
 // ───────────── tela inicial (o instrumento continua tocável por trás)
 const MODES = [
-  ['play', 'harp', 'Tocar', 'Modo livre, acordes e jam', true],
-  ['learn', 'book', 'Aprender', 'Siga as luzes e aprenda músicas'],
-  ['genius', 'brain', 'Genius', 'Memória musical no instrumento'],
+  ['play', 'harp', 'Tocar', 'Escolha um instrumento e comece', true],
+  ['learn', 'book', 'Aprender', 'Toque músicas seguindo as luzes'],
+  ['genius', 'brain', 'Genius', 'Repita a sequência de luzes'],
   ['studio', 'studio', 'Estúdio', 'Loops, bateria e exportação'],
   ['create', 'pen', 'Criar', 'Instrumentos, lições e desafios'],
   ['playground', 'orbit', 'Playground', 'Orbes, gravidade e surpresas'],
 ];
 const home = h('main#home', { 'aria-label': 'Início' },
-  h('div.hero-top', {}, h('div', {}, h('h1', {}, 'Fingmusic'), h('p.tagline', {}, 'Instrumentos de luz para tocar com os dedos ou com as mãos no ar.')),
+  h('div.hero-top', {}, h('div', {}, h('h1', {}, 'Fingmusic'), h('p.tagline', {}, 'Toque com os dedos ou com as mãos no ar.')),
     h('div.row', {}, h('button.btn.icon-only', { type: 'button', 'aria-label': 'Configurações', onclick: () => openSettingsSheet(ui) }, icon('gear')), h('button.btn.icon-only', { type: 'button', 'aria-label': 'Menu', onclick: () => openMenuSheet(ui) }, icon('menu')))),
-  h('div.hint', {}, 'toque nas cordas'),
+  h('div.hint', {}, 'Experimente tocar nas cordas'),
   h('div', {},
     h('nav.modes', {}, ...MODES.map(([id, ic, name, desc, main]) => h('button.mode' + (main ? '.main' : ''), { type: 'button', onclick: () => { app.engine.unlock(); ui.go(id); } }, icon(ic), h('b', {}, name), h('small', {}, desc)))),
-    h('div.foot', {}, h('span', {}, 'Tudo sintetizado no aparelho · funciona offline'), h('span', { id: 'ver' }, 'v' + (import.meta.env?.VITE_VERSION ?? '4.0')))),
+    h('div.foot', {}, h('span', {}, 'Instrumentos de luz'), h('span', { id: 'ver' }, 'v' + (import.meta.env?.VITE_VERSION ?? '4.0.1')))),
 );
 document.body.append(home);
 
