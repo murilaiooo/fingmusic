@@ -47,15 +47,16 @@ export function learnMode(ui) {
       }));
       if (!items.length) list.append(h('p.note', {}, 'Nada encontrado com esses filtros.'));
     };
-    const search = h('input.text-input', { type: 'search', placeholder: 'Buscar música, compositor ou estilo', oninput: (e) => { q = e.target.value.toLowerCase().trim(); render(); } });
+    const search = h('input.text-input', { type: 'search', 'aria-label': 'Buscar música, compositor ou estilo', placeholder: 'Buscar música ou estilo', oninput: (e) => { q = e.target.value.toLowerCase().trim(); render(); } });
     const sheet = openSheet({ title: 'Biblioteca', id: 'lib', size: 'lg', content: [
       search,
       h('div', { style: { height: '8px' } }),
       segmented([['all', 'Tudo'], ['song', 'Músicas'], ['groove', 'Grooves'], ['technique', 'Técnicas'], ['exercise', 'Exercícios'], ['ear', 'Ouvido'], ['progression', 'Progressões'], ['mine', 'Minhas']], kind, (v) => { kind = v; render(); }),
+      h('details', {}, h('summary', {}, 'Filtros e importação'),
       h('div.grid2', { style: { marginTop: '8px' } },
         select({ label: 'Estilo', value: genre, options: [['all', 'Todos'], ...GENRES.map((g) => [g, g])], onChange: (v) => { genre = v; render(); } }),
         select({ label: 'Dificuldade', value: diff, options: [[0, 'Todas'], [1, '● Fácil'], [2, '●● Média'], [3, '●●● Difícil']], onChange: (v) => { diff = Number(v); render(); } })),
-      h('div.actions', {}, btn('Importar MIDI', importMidi, { icon: 'upload', cls: 'small' }), btn('Importar lição (.json)', importJson, { icon: 'upload', cls: 'small' })),
+      h('div.actions', {}, btn('Importar MIDI', importMidi, { icon: 'upload', cls: 'small' }), btn('Importar lição (.json)', importJson, { icon: 'upload', cls: 'small' }))),
       h('div.section-title', {}, 'Conteúdo'), list,
       h('p.note', {}, 'Melodias clássicas em domínio público com arranjos originais e composições originais do Fingmusic. Arquivos importados ficam só neste aparelho.'),
     ] });
@@ -66,6 +67,7 @@ export function learnMode(ui) {
   function openDetail(song, preset = {}) {
     let trackId = preset.trackId ?? song.defaultTrack, mode = preset.mode ?? (song.kind === 'technique' ? 'step' : 'guided'), rate = preset.rate ?? 1, sectionIdx = preset.sectionIdx ?? -1, guide = null, fitChoice = null;
     const body = h('div');
+    let startLesson;
     const render = () => {
       const track = song.tracks.find((t) => t.id === trackId) ?? song.tracks[0];
       const inst = getInstrument(track.instrument);
@@ -73,7 +75,8 @@ export function learnMode(ui) {
       const fit = inst.surface === 'strings' ? { fits: true, options: [] } : fitCheck(track, range);
       const fitBox = fit.fits ? null : h('div', {}, h('p.note', {}, `${fit.out} nota(s) desta pista ficam fora da extensão do ${inst.name}. Escolha como adaptar (nada muda sem a sua escolha):`),
         h('div.list', {}, ...fit.options.map((o) => { const b = h('button.item' + (fitChoice?.id === o.id ? '.on' : ''), { type: 'button', onclick: () => { fitChoice = o; render(); } }, h('span.meta', {}, h('div.name', {}, o.label))); return b; })));
-      body.replaceChildren(
+      startLesson = () => { if (!fit.fits && !fitChoice) { toast('Escolha como adaptar a pista'); return; } sheet.close(); begin(song, { mode, trackId, rate, section: sectionIdx >= 0 ? song.sections[sectionIdx] : null, guideVolume: guide ?? undefined, fit: fitChoice, range }); };
+      body.replaceChildren(...[
         song.description ? h('p.note', {}, song.description) : null,
         h('dl.kv', {}, h('dt', {}, 'Tipo'), h('dd', {}, KINDS[song.kind] ?? song.kind), h('dt', {}, 'Autor'), h('dd', {}, song.composer ?? '—'), h('dt', {}, 'Andamento'), h('dd', {}, Math.round(song.tempo[0].bpm) + ' BPM'),
           h('dt', {}, 'Técnicas'), h('dd', {}, (song.techniques ?? []).map((t) => TECH_LABEL[t] ?? t).join(', ') || '—'), progress[song.id] ? h('dt', {}, 'Seu melhor') : null, progress[song.id] ? h('dd', {}, `${Math.round(progress[song.id].best * 100)}% · ${'★'.repeat(progress[song.id].stars)}`) : null),
@@ -82,19 +85,19 @@ export function learnMode(ui) {
         h('p.note', {}, 'As outras pistas tocam como acompanhamento.'),
         fitBox,
         h('div.section-title', {}, 'Modo'),
-        h('div.list', {}, ...Object.entries(LEARN_MODES).map(([id, m]) => h('button.item' + (id === mode ? '.on' : ''), { type: 'button', onclick: () => { mode = id; render(); } }, h('span.meta', {}, h('div.name', {}, m.name), h('div.desc', {}, m.desc))))),
+        select({ label: 'Como aprender', value: mode, options: Object.entries(LEARN_MODES).map(([id, m]) => [id, m.name]), onChange: (v) => { mode = v; render(); } }),
+        h('p.note', {}, LEARN_MODES[mode].desc),
         mode !== 'step' ? h('div.section-title', {}, 'Velocidade') : null,
         mode !== 'step' ? segmented([['0.5', '50%'], ['0.75', '75%'], ['0.9', '90%'], ['1', '100%'], ['1.15', '115%']], String(rate), (v) => { rate = Number(v); }) : null,
         mode === 'practice' || mode === 'memory' ? select({ label: 'Trecho em loop', value: sectionIdx, options: [[-1, 'Música inteira'], ...song.sections.map((s, i) => [i, `${s.name} (compassos ${s.from / 4 + 1}–${s.to / 4})`])], onChange: (v) => { sectionIdx = Number(v); } }) : null,
         mode === 'guided' || mode === 'practice' ? slider({ label: 'Volume da guia (sua parte tocada junto)', min: 0, max: 1, value: guide ?? 0.25, format: (v) => Math.round(v * 100) + '%', onInput: (v) => { guide = v; } }) : null,
         h('div.actions', {},
-          btn('Começar', () => { if (!fit.fits && !fitChoice) { toast('Escolha como adaptar a pista'); return; } sheet.close(); begin(song, { mode, trackId, rate, section: sectionIdx >= 0 ? song.sections[sectionIdx] : null, guideVolume: guide ?? undefined, fit: fitChoice, range }); }, { icon: 'play', cls: 'primary' }),
           btn('Levar ao Genius', () => { const t = song.tracks.find((x) => x.id === trackId); const code = encodeSequence(sequenceFromNotes(t.notes).slice(0, 32), { title: song.title, inst: t.instrument }); sheet.close(); ui.go('genius', { challengeCode: code, instrument: t.instrument }); }, { icon: 'brain', cls: 'small' }),
           btn('Biblioteca', () => { sheet.close(); openLibrary(); }, { icon: 'book', cls: 'small' }),
           song.license === 'user' ? btn('Exportar', () => download(new Blob([JSON.stringify(song, null, 1)], { type: 'application/json' }), slug(song.title) + '.fingmusic.json'), { icon: 'download', cls: 'small' }) : null),
-      );
+      ].filter(Boolean));
     };
-    const sheet = openSheet({ title: song.title, id: 'detail', size: 'lg', content: body });
+    const sheet = openSheet({ title: song.title, id: 'detail', size: 'lg', content: body, footer: btn('Começar a tocar', () => startLesson?.(), { icon: 'play', cls: 'primary' }) });
     render();
   }
 
@@ -122,13 +125,13 @@ export function learnMode(ui) {
     const step = P.mode === 'step';
     const playBtn = btn(null, () => { if (!P.active) P.start(); else if (app.transport.playing) P.pause(); else P.resume(); }, { icon: 'pause', cls: 'icon-only', title: 'Pausar/continuar (espaço)' });
     const syncPlay = () => { playBtn.querySelector('.ic').innerHTML = icon(app.transport.playing ? 'pause' : 'play').innerHTML; };
-    const speed = segmented([['0.5', '50%'], ['0.75', '75%'], ['1', '100%']], String(P.rate), (v) => P.setRate(Number(v)));
+    const speed = h('select.speed-select', { 'aria-label': 'Velocidade', onchange: (e) => P.setRate(Number(e.target.value)) }, ...[0.5,0.75,0.9,1,1.15].map(v => h('option', { value: String(v), selected: v === P.rate }, Math.round(v * 100) + '%')));
     ui.setDock(h('div.bar', {}, h('div.row.grow', {},
       step ? btn('Ouvir a nota', () => P.hint(), { icon: 'ear', cls: 'small' }) : playBtn,
       btn(null, () => P.start(), { icon: 'repeat', cls: 'small icon-only', title: 'Recomeçar' }),
       step ? null : speed,
-      btn('Opções', () => openDetail(current, { mode: P.mode, trackId: P.track.id, rate: P.rate }), { icon: 'gear', cls: 'small' }),
-      btn('Biblioteca', () => { P.stop(); openLibrary(); }, { icon: 'book', cls: 'small' }))));
+      btn(null, () => { P.pause(); openDetail(current, { mode: P.mode, trackId: P.track.id, rate: P.rate }); }, { icon: 'gear', cls: 'icon-only', title: 'Opções da música' }),
+      btn(null, () => { P.stop(); openLibrary(); }, { icon: 'book', cls: 'icon-only', title: 'Biblioteca' }))));
     ui.setHud(h('div.hud-pill', {}, hudTitle, bar, judgeEl, comboEl));
     offs.push(app.transport.on('start', syncPlay), app.transport.on('pause', syncPlay), app.transport.on('stop', syncPlay));
     syncPlay();
