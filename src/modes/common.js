@@ -152,7 +152,10 @@ export function surfaceTools(app) {
     b.addEventListener('dblclick', () => set(!s.mods[key]));
     return b;
   };
-  if (kind === 'FretboardSurface') {
+  if (kind === 'StringsSurface') {
+    const gesture = segmented([['play', 'Tocar'], ['pull', 'Puxar']], s.gesture, v => { s.cancelAll(); s.gesture = v; });
+    out.push(gesture);
+  } else if (kind === 'FretboardSurface') {
     out.push(hold('Abafar', 'mute', 'Segure para palm mute'), hold('Harm.', 'harm', 'Segure para harmônicos'));
     const tap = btn('Tap', () => { s.mods.tap = !s.mods.tap; setPressed(tap, s.mods.tap); }, { cls: 'small', title: 'Tapping: tocar só pressionando o braço' });
     const pos = h('span.pill', {}, '');
