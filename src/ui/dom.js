@@ -1,12 +1,15 @@
 /** Construção de DOM declarativa e mínima, sem framework. */
 export function h(tag, props = {}, ...children) {
-  const [name, ...cls] = tag.split('.');
-  const el = document.createElement(name || 'div');
-  if (cls.length) el.className = cls.join(' ');
+  const name = tag.match(/^[^.#]+/)?.[0] || 'div';
+  const el = document.createElement(name);
+  for (const match of tag.matchAll(/([.#])([^.#]+)/g)) {
+    if (match[1] === '#') el.id = match[2];
+    else el.classList.add(match[2]);
+  }
   for (const [k, v] of Object.entries(props ?? {})) {
     if (v == null || v === false) continue;
     if (k === 'class') el.className += (el.className ? ' ' : '') + v;
-    else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k === 'style' && typeof v === 'object') { for (const [p, x] of Object.entries(v)) { if (p.startsWith('--')) el.style.setProperty(p, x); else el.style[p] = x; } }
     else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
     else if (k === 'html') el.innerHTML = v;
     else if (k in el && typeof v !== 'string') el[k] = v;
@@ -98,7 +101,7 @@ export function select({ label, value, options, onChange }) {
 }
 export function segmented(options, value, onChange, cls = '') {
   const wrap = h('div.seg' + (cls ? '.' + cls : ''), { role: 'radiogroup' });
-  const render = (v) => { for (const b of wrap.children) setPressed(b, b.dataset.v === String(v)); };
+  const render = (v) => { for (const b of wrap.children) { const on = b.dataset.v === String(v); setPressed(b, on); b.setAttribute('aria-checked', String(on)); } };
   for (const [v, t] of options) wrap.append(h('button', { type: 'button', role: 'radio', 'data-v': v, onclick: () => { render(v); onChange(v); } }, t));
   render(value);
   wrap.set = render;
