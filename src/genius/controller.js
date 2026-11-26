@@ -25,6 +25,7 @@ export class GeniusController extends Emitter {
     super();
     this.app = app;
     this.game = null;
+    this.demoVoices = new Set(); this.demoTimers = new Set();
     this.options = { mode: 'classic', difficulty: 'beginner', sound: true, lights: true, players: 1, multi: null, twoHands: false };
   }
 
@@ -78,13 +79,15 @@ export class GeniusController extends Emitter {
 
   onState(s) {
     const app = this.app;
-    app.performer.locked = s.to === 'demonstrating' || s.to === 'countdown' || s.to === 'validating';
+    app.performer.locked = !['awaiting', 'composing', 'idle', 'gameOver'].includes(s.to);
+    if (s.to !== 'demonstrating') this.stopDemo();
     if (s.to === 'demonstrating') this.demonstrate(s.timeline);
     if (s.to === 'gameOver') this.saveResult(s.result);
     this.emit('state', s);
   }
 
   demonstrate(tl) {
+    this.stopDemo();
     const app = this.app, g = this.game, ch = app.performer.channel;
     const t0 = app.engine.now + 0.15;
     app.lighting.clear();
@@ -92,13 +95,21 @@ export class GeniusController extends Emitter {
     tl.items.forEach((it, i) => {
       const notes = Array.isArray(it.step.m) ? it.step.m : [it.step.m];
       for (const m of notes) {
-        if (this.options.sound !== false) ch.play({ midi: m, vel: it.step.v ?? 0.75, when: t0 + it.at, dur: it.dur, tech: ['slap', 'pop', 'mute', 'harmonic'].includes(it.step.tech) ? it.step.tech : it.step.tech === 'ghost' ? 'mute' : null });
+        if (this.options.sound !== false) {
+          const v = ch.play({ midi: m, vel: it.step.v ?? 0.75, when: t0 + it.at, dur: it.dur, tech: ['slap', 'pop', 'mute', 'harmonic'].includes(it.step.tech) ? it.step.tech : it.step.tech === 'ghost' ? 'mute' : null });
+          if (v?.kill) this.demoVoices.add(v);
+        }
         if (lightsOn) app.lighting.add({ midi: m, key: app.surface.keyFor?.(m) ?? null, t: t0 + it.at, dur: it.dur, vel: it.step.v ?? 0.75, tech: it.step.tech ?? 'finger', demo: true });
       }
       // a corda vibra junto com o som
-      if (lightsOn) setTimeout(() => this.emit('demo-note', { notes, index: i }), (it.at + 0.15) * 1000);
+      if (lightsOn) { const id = setTimeout(() => { this.demoTimers.delete(id); this.emit('demo-note', { notes, index: i }); }, (it.at + 0.15) * 1000); this.demoTimers.add(id); }
     });
-    app.lighting.anticipation = 0.35; // sem revelar a próxima nota cedo demais
+    app.lighting.anticipation = 0; // uma nota de cada vez, sem revelar a seguinte
+  }
+  stopDemo() {
+    for (const v of this.demoVoices) v.kill?.(); this.demoVoices.clear();
+    for (const id of this.demoTimers) clearTimeout(id); this.demoTimers.clear();
+    this.app.lighting.clear();
   }
   showHint(step) {
     const notes = Array.isArray(step.m) ? step.m : [step.m];
@@ -113,7 +124,8 @@ export class GeniusController extends Emitter {
     for (const id of this.timers ?? []) clearTimeout(id);
     this.offInput?.(); this.offBlocked?.();
     this.app.performer.locked = false;
-    this.app.lighting.clear();
+    this.stopDemo();
+    this.app.lighting.anticipation = this.app.settings.anticipation;
     this.game = null;
   }
 
