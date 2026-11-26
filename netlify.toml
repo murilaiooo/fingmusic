@@ -1,6 +1,7 @@
-# Deploy do Fingmusic no Netlify (site "harpa-no-ar").
+"$schema" = "https://open-api.netlify.com/netlify.schema.json"
+# Deploy do Fingmusic no Netlify (site "fingmusic").
 [build]
-  command = "npm ci && npm run build"
+  command = "npm ci && npm test && npm run build"
   publish = "dist"
 
 [build.environment]
