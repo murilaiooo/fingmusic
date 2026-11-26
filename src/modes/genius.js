@@ -3,7 +3,7 @@
  * dia, código de amigo), HUD da partida (rodada, recorde, vez, progresso da
  * sequência) e resultado (recorde, conquistas, compartilhar, virar exercício).
  */
-import { h, btn, segmented, toggle, icon, setPressed } from '../ui/dom.js';
+import { h, btn, segmented, toggle, icon, setPressed, select } from '../ui/dom.js';
 import { openSheet, toast } from '../ui/sheet.js';
 import { MODES, DIFFICULTIES } from '../genius/game.js';
 import { ACHIEVEMENTS } from '../genius/controller.js';
@@ -25,28 +25,29 @@ export function geniusMode(ui) {
     records = await G.records();
     const ach = await G.achievements();
     const best = (m = cfg.mode, d = cfg.difficulty) => records[`${m}|${d}`]?.maxLength ?? 0;
-    const modeList = h('div.list');
-    const renderModes = () => modeList.replaceChildren(...Object.entries(MODES).map(([id, m]) => h('button.item' + (id === cfg.mode ? '.on' : ''), { type: 'button', onclick: () => { cfg.mode = id; renderModes(); } },
-      h('span.meta', {}, h('div.name', {}, m.name), h('div.desc', {}, m.desc)), best(id) ? h('span.tag', {}, 'recorde ' + best(id)) : null)));
-    renderModes();
-    const code = h('input.text-input', { placeholder: 'Cole o código de um amigo (opcional)', value: extra.challengeCode ?? '' });
+    const description = h('p.note', {}, MODES[cfg.mode].desc);
+    const code = h('input.text-input', { 'aria-label': 'Código de desafio', placeholder: 'Código de um amigo', value: extra.challengeCode ?? '' });
     const daily = dailySeed(new Date(), cfg.difficulty, cfg.mode);
-    const sheet = openSheet({ title: 'Genius', id: 'gsetup', size: 'lg', content: [
-      h('p.note', {}, 'O próprio instrumento mostra a sequência: luz, som e a corda vibrando. Depois é sua vez de repetir.'),
-      h('div.row', {}, btn(app.instrument.name, () => openInstrumentSheet(ui, { onPick: (id) => { app.setInstrument(id, { silent: true }); toast(app.instrument.name); sheet.close(); openSetup(extra); }, title: 'Instrumento do Genius' }), { icon: 'harp', cls: 'small' })),
-      h('div.section-title', {}, 'Modo'), modeList,
-      h('div.section-title', {}, 'Dificuldade'),
-      segmented(Object.entries(DIFFICULTIES).map(([id, d]) => [id, d.name]), cfg.difficulty, (v) => { cfg.difficulty = v; renderModes(); }),
-      h('p.note', {}, 'Mais elementos no instrumento, demonstração mais rápida e, nos níveis altos, acordes e técnicas.'),
-      h('div.section-title', {}, 'Jogadores'),
-      segmented([['solo', 'Solo'], ['duel', 'Duelo (2)'], ['build', 'Construir juntos'], ['hands', 'Duas mãos']], cfg.multi ?? (cfg.twoHands ? 'hands' : 'solo'), (v) => { cfg.multi = v === 'duel' || v === 'build' ? v : null; cfg.players = cfg.multi ? 2 : 1; cfg.twoHands = v === 'hands'; }),
-      h('div.section-title', {}, 'Opções'),
-      toggle({ label: 'Desafio do dia', hint: `Mesma sequência para todo mundo hoje (${daily.date}). Sem ranking: compartilhe o resultado.`, value: cfg.daily, onChange: (v) => { cfg.daily = v; } }),
-      toggle({ label: 'Luzes na demonstração', value: cfg.lights, onChange: (v) => { cfg.lights = v; } }),
-      toggle({ label: 'Som na demonstração', value: cfg.sound, onChange: (v) => { cfg.sound = v; } }),
-      h('div.section-title', {}, 'Desafiar um amigo'), code,
-      h('div.actions', {}, btn('Jogar', () => { sheet.close(); start(code.value.trim()); }, { icon: 'play', cls: 'primary' }), btn('Recordes e conquistas', () => openRecords(ach), { icon: 'trophy', cls: 'small' })),
+    const play = btn('Jogar agora', () => {
+      if (!cfg.sound && (!cfg.lights || cfg.mode === 'blind')) { toast('Ative o som ou as luzes para observar a sequência.'); return; }
+      sheet.close(); start(code.value.trim());
+    }, { icon: 'play', cls: 'primary' });
+    const sheet = openSheet({ title: 'Genius', id: 'gsetup', size: 'lg', footer: play, content: [
+      h('p.note', {}, 'Observe as cordas acenderem. Depois, toque as mesmas notas na ordem certa. A cada rodada, uma nota nova.'),
+      h('div.section-title', {}, 'Instrumento'),
+      h('button.item', { type: 'button', onclick: () => openInstrumentSheet(ui, { onPick: (id) => { app.setInstrument(id, { silent: true }); sheet.close(); openSetup({ ...extra, challengeCode: code.value }); }, title: 'Instrumento do Genius' }) }, icon('harp'), h('span.meta', {}, h('div.name', {}, app.instrument.name), h('div.desc', {}, 'Toque para trocar')), icon('chevron')),
+      select({ label: 'Modo de jogo', value: cfg.mode, options: Object.entries(MODES).map(([id, m]) => [id, m.name]), onChange: (v) => { cfg.mode = v; description.textContent = MODES[v].desc; } }),
+      description,
+      select({ label: 'Dificuldade', value: cfg.difficulty, options: Object.entries(DIFFICULTIES).map(([id, d]) => [id, d.name]), onChange: (v) => { cfg.difficulty = v; } }),
+      h('details', {}, h('summary', {}, 'Mais opções'),
+        select({ label: 'Jogadores', value: cfg.multi ?? (cfg.twoHands ? 'hands' : 'solo'), options: [['solo', 'Solo'], ['duel', 'Duelo (2)'], ['build', 'Construir juntos'], ['hands', 'Duas mãos']], onChange: (v) => { cfg.multi = v === 'duel' || v === 'build' ? v : null; cfg.players = cfg.multi ? 2 : 1; cfg.twoHands = v === 'hands'; } }),
+        toggle({ label: 'Desafio do dia', hint: daily.date, value: cfg.daily, onChange: (v) => { cfg.daily = v; } }),
+        toggle({ label: 'Luzes na demonstração', value: cfg.lights, onChange: (v) => { cfg.lights = v; } }),
+        toggle({ label: 'Som na demonstração', value: cfg.sound, onChange: (v) => { cfg.sound = v; } }),
+        h('label.field', {}, h('span.flabel', {}, 'Desafiar um amigo'), code)),
+      btn('Recordes e conquistas', () => openRecords(ach), { icon: 'trophy', cls: 'small' }),
     ] });
+    if (extra.challengeCode) code.closest('details').open = true;
   }
 
   function start(codeStr = '') {
@@ -68,6 +69,8 @@ export function geniusMode(ui) {
 
   function buildDock() {
     const pause = btn(null, () => { if (G.game?.state === 'paused') G.resume(); else G.pause(); }, { icon: 'pause', cls: 'icon-only', title: 'Pausar' });
+    const syncPause = () => { const paused = G.game?.state === 'paused'; pause.querySelector('.ic').innerHTML = icon(paused ? 'play' : 'pause').innerHTML; pause.setAttribute('aria-label', paused ? 'Continuar' : 'Pausar'); };
+    if (G.game) G.game.on('state', syncPause);
     const replay = btn('Repetir', () => { if (!G.replay()) toast('Repetir só nos modos Tranquilo, Zen e Eco'); }, { icon: 'repeat', cls: 'small' });
     ui.setDock(h('div.bar', {}, h('div.row.grow', {}, pause, replay, btn('Novo jogo', () => openSetup(), { icon: 'brain', cls: 'small' }), btn('Recomeçar', () => start(), { icon: 'repeat', cls: 'small icon-only', title: 'Recomeçar' }))));
     ui.setHud(h('div.hud-pill', {}, icon('brain'), h('span', {}, 'Rodada ', roundEl), recEl, turnEl), dots);
@@ -87,7 +90,7 @@ export function geniusMode(ui) {
     if (s.to === 'demonstrating') { ui.turn('watch'); ui.message(STATE_MSG.demonstrating, multi ? `Jogador ${g.player + 1} se prepara` : `${s.sequence.length} nota${s.sequence.length > 1 ? 's' : ''}`); renderDots(s.sequence.length, 0); }
     else if (s.to === 'awaiting') { ui.turn('you'); ui.message(multi ? `Jogador ${s.player + 1}` : STATE_MSG.awaiting, g.mode === 'reverse' ? 'de trás para frente' : g.mode === 'rhythm' || g.mode === 'bass' ? 'no mesmo ritmo' : null, 900); }
     else if (s.to === 'roundComplete') { ui.turn(null); ui.message(STATE_MSG.roundComplete, s.rhythm != null ? `ritmo ${Math.round(s.rhythm * 100)}%` : null, 700); app.haptics.pulse(0.4); }
-    else if (s.to === 'failed') { ui.turn(null); ui.message(STATE_MSG.failed, s.reason === 'timeout' ? 'o tempo acabou' : s.reason === 'rhythm' ? 'fora do ritmo' : s.reason === 'tech' ? 'técnica diferente' : 'nota diferente', 1100); }
+    else if (s.to === 'failed') { ui.turn(null); ui.message(STATE_MSG.failed, s.reason === 'timeout' ? 'o tempo acabou' : s.reason === 'rhythm' ? 'fora do ritmo' : s.reason === 'technique' ? 'técnica diferente' : 'nota diferente', 1100); }
     else if (s.to === 'countdown') { ui.message(STATE_MSG.countdown, null, 900); }
     else if (s.to === 'paused') { ui.message(STATE_MSG.paused, 'toque em ▶ para continuar'); }
     else if (s.to === 'composing') { ui.turn('you'); ui.message(`Jogador ${s.player + 1}`, 'toque uma nota nova para a sequência'); }
