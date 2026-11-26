@@ -20,18 +20,24 @@ export function playMode(ui) {
     strip = isDrum ? null : chordStrip(app);
     const jamBtn = btn('Jam', () => { const on = jam.toggle(); setPressed(jamBtn, on); }, { icon: 'play', cls: 'small', title: 'Acompanhamento automático (bateria, baixo e acordes)' });
     setPressed(jamBtn, jam.on);
-    const jamStyle = h('button.btn.small', { type: 'button', onclick: () => openJamSheet() }, JAM_NAMES[jam.style]);
     const arpBtn = btn('Arp', () => { arp.setEnabled(!arp.enabled); setPressed(arpBtn, arp.enabled); if (arp.enabled) toast('Toque notas: o arpejador repete no tempo'); }, { cls: 'small', title: 'Arpejador' });
     setPressed(arpBtn, arp.enabled);
     const arpMore = btn(null, () => openSheet({ title: 'Arpejador', id: 'arp', content: [h('p.note', {}, 'Toque uma ou mais notas: o arpejador as repete sincronizado com o tempo. Com a jam ligada, segue a batida dela.'), ...arpControls(arp)] }), { icon: 'more', cls: 'small icon-only', title: 'Opções do arpejador' });
     const metro = btn(null, () => { const m = app.metronome; m.enabled = !m.enabled; setPressed(metro, m.enabled); if (m.enabled && !app.transport.playing) { app.engine.unlock(); app.transportOwner = 'metronome'; app.transport.setLoop(0, 0); app.transport.start(); } if (!m.enabled && app.transportOwner === 'metronome') app.transport.stop(); }, { icon: 'metro', cls: 'small icon-only', title: 'Metrônomo (M)' });
     setPressed(metro, app.metronome.enabled);
-    const bpm = h('button.pill', { type: 'button', style: { background: 'none', border: 0, color: 'inherit' }, onclick: () => openTempo() }, h('b', {}, app.transport.bpm), ' BPM');
+    const bpm = btn(app.transport.bpm + ' BPM', openTempo, { cls: 'small', title: 'Andamento' });
     const rec = btn(null, () => quickRecord(), { icon: 'rec', cls: 'small icon-only rec', title: 'Gravar no estúdio (.)' });
     const tools = surfaceTools(app);
+    const more = btn(null, () => openSheet({ title: 'Acompanhamento e arpejo', id: 'playtools', content: [
+      h('div.section-title', {}, 'Jam automática'),
+      btn('Escolher estilo · ' + JAM_NAMES[jam.style], () => openJamSheet(), { icon: 'music' }),
+      h('div.section-title', {}, 'Arpejador'), arpBtn, arpMore,
+      h('p.note', {}, 'O arpejador repete as notas que você toca no ritmo escolhido.')
+    ] }), { icon: 'more', cls: 'icon-only', title: 'Mais ferramentas de acompanhamento' });
     ui.setDock(
       strip,
-      h('div.bar', {}, h('div.row.grow', {}, ...tools, tools.length ? h('span', { style: { width: '6px' } }) : null, jamBtn, jamStyle, arpBtn, arpMore, metro, bpm), rec),
+      tools.length ? h('div.bar', {}, h('div.row.grow', {}, ...tools)) : null,
+      h('div.bar.play-controls', {}, h('div.row.grow', {}, jamBtn, bpm, metro, more), rec),
     );
   };
   const openJamSheet = () => {
