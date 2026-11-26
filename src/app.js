@@ -90,7 +90,9 @@ export class App extends Emitter {
     if (!silent) { this.settings.lastInstrument = inst.id; this.saveSettingsSoon(); }
     const fixed = this.surface?.fixedNotes ?? null;
     this.surface?.destroy();
-    this.surface = createSurface(this, inst, { ...this.surfaceOpts, ...surfaceOpts });
+    const opts = { ...this.surfaceOpts, ...surfaceOpts };
+    if (this.mode === 'play' && inst.surface === 'fretboard' && this.settings.classicStrings !== false && !opts.surface) { opts.surface = 'strings'; opts.orient = 'horizontal'; }
+    this.surface = createSurface(this, inst, opts);
     if (fixed && this.keepFixed) this.surface.fixedNotes = fixed;
     this.layoutSurface();
     if (this.liveChannel) {
