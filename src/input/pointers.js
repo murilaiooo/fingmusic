@@ -29,7 +29,7 @@ export function bindKeyboard(app) {
   const held = new Map();
   const idxOf = (k) => { const a = ROW1.indexOf(k); if (a >= 0) return a; const b = ROW2.indexOf(k); return b >= 0 ? 10 + b : -1; };
   addEventListener('keydown', (e) => {
-    if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.target.isContentEditable) return;
+    if (document.querySelector('.sheet-root.open') || /INPUT|SELECT|TEXTAREA|BUTTON|SUMMARY/.test(e.target.tagName) || e.target.isContentEditable) return;
     const k = e.key.toLowerCase();
     if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? app.studio.redo() : app.studio.undo(); return; }
     if (e.ctrlKey || e.metaKey) return;
