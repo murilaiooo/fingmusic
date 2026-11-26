@@ -35,7 +35,7 @@ export class Lighting {
   add(c) { const cue = { id: ++cueSeq, dur: 0.25, vel: 0.7, tech: 'finger', state: 'pending', hidden: false, demo: false, ...c }; this.cues.push(cue); return cue; }
   addMany(list) { return list.map((c) => this.add(c)); }
   remove(cue) { this.cues = this.cues.filter((c) => c !== cue); }
-  prune(now = this.clock()) { this.cues = this.cues.filter((c) => c.t + c.dur + 1.2 > now); this.flashes = this.flashes.filter((f) => f.t + 0.8 > now); }
+  prune(now = this.clock()) { this.cues = this.cues.filter((c) => (c.waiting && c.state === 'pending') || c.t + c.dur + 1.2 > now); this.flashes = this.flashes.filter((f) => f.t + 0.8 > now); }
   mark(cue, state, extra = {}) { if (!cue) return; cue.state = state; Object.assign(cue, extra); cue.markedAt = this.clock(); }
   flash(match, kind, now = this.clock()) { this.flashes.push({ ...match, kind, t: now }); }
 
