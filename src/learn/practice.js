@@ -29,6 +29,7 @@ export class Practice extends Emitter {
     this.app = app;
     this.evaluator = new Evaluator();
     this.channels = new Map();
+    this.scheduledVoices = new Set();
     this.active = false;
     this.adaptive = true;
     app.transport.addPart(this);
@@ -67,7 +68,9 @@ export class Practice extends Emitter {
 
   start(fromBeat = null) {
     if (!this.song) return;
+    clearInterval(this.sweeper); clearTimeout(this.stepTimer); this.silence();
     this.active = true;
+    this._cuePrime = true;
     this.app.lighting.clear();
     this.app.lighting.anticipation = this.mode === 'performance' ? 0 : this.anticipation;
     this.evaluator.reset();
@@ -88,10 +91,10 @@ export class Practice extends Emitter {
     this.emit('state', 'running');
     this.sweeper = setInterval(() => this.sweep(), 60);
   }
-  pause() { if (this.mode === 'step') return; this.app.transport.pause(); this.emit('state', 'paused'); }
-  resume() { if (this.mode === 'step') return; this.app.transport.resume(); this.emit('state', 'running'); }
+  pause() { if (this.mode === 'step') return; this.app.transport.pause(); this.evaluator.pending = []; this.app.lighting.clear(); this.emit('state', 'paused'); }
+  resume() { if (this.mode === 'step') return; this._cuePrime = true; this.app.transport.resume(); this.emit('state', 'running'); }
   stop() {
-    this.active = false; clearInterval(this.sweeper);
+    this.active = false; clearInterval(this.sweeper); clearTimeout(this.stepTimer); this.silence();
     this.offInput?.(); this.offInputOff?.(); this.offInput = this.offInputOff = null;
     if (this.app.transportOwner === 'learn') { this.app.transport.stop(); this.app.transport.setLoop(0, 0); this.app.transport.setRate(1); }
     this.app.lighting.clear();
@@ -104,6 +107,9 @@ export class Practice extends Emitter {
   schedule(from, to, toTime, info) {
     if (!this.active || this.app.transportOwner !== 'learn' || this.mode === 'step') return;
     const tr = this.app.transport;
+    const minBeat = Math.max(this.section?.from ?? 0, tr.countInEnd ?? 0);
+    const maxBeat = this.section?.to ?? this.song.length;
+    for (const v of this.scheduledVoices) if (v.alive === false) this.scheduledVoices.delete(v);
     // acompanhamento + guia
     for (const t of this.song.tracks) {
       const isPlayer = t.id === this.track.id;
@@ -111,14 +117,15 @@ export class Practice extends Emitter {
       const vol = isPlayer ? this.guideVolume : (t.volume ?? 0.8);
       if (vol <= 0.001) continue;
       for (const n of isPlayer ? this.notes : t.notes) {
-        if (n.b >= from && n.b < to) {
+        if (n.b >= Math.max(from, minBeat) && n.b < Math.min(to, maxBeat)) {
           const when = toTime(n.b), end = toTime(n.b + (n.d ?? 0.5));
-          ch.play({ midi: n.m, vel: (n.v ?? 0.8) * (isPlayer ? vol / 0.8 : 1), when, dur: end - when, tech: ['slap', 'pop', 'mute', 'harmonic', 'pick', 'hammer'].includes(n.tech) ? n.tech : n.tech === 'ghost' ? 'mute' : null });
+          const voice = ch.play({ midi: n.m, vel: (n.v ?? 0.8) * (isPlayer ? vol / 0.8 : 1), when, dur: end - when, tech: ['slap', 'pop', 'mute', 'harmonic', 'pick', 'hammer'].includes(n.tech) ? n.tech : n.tech === 'ghost' ? 'mute' : null });
+          if (voice?.kill) this.scheduledVoices.add(voice);
         }
       }
     }
     // luzes com antecedência (em batidas)
-    const ahead = this.anticipation * tr.bpmAt(from) / 60 + 0.01;
+    const ahead = this.mode === 'listen' || this.mode === 'performance' ? 0 : this.anticipation * tr.bpmAt(from) / 60 + 0.01;
     let prevKey = this._lastKey ?? null;
     const addCue = (n, bAt) => {
       const when = toTime(bAt);
@@ -128,22 +135,24 @@ export class Practice extends Emitter {
       if (this.mode !== 'listen') this.evaluator.expect([cue]);
       else this.app.lighting.mark(cue, 'pending');
     };
-    const lo = from + ahead, hi = to + ahead;
+    const lo = this._cuePrime ? from : from + ahead, hi = to + ahead;
+    this._cuePrime = false;
     const len = tr.loop ? tr.loop.end - tr.loop.start : Infinity;
     for (const n of this.notes) {
-      if (n.b >= lo && n.b < hi && (!tr.loop || n.b < tr.loop.end)) addCue(n, n.b);
-      else if (tr.loop && n.b + len >= lo && n.b + len < hi && n.b >= tr.loop.start) addCue(n, n.b + len);
+      if (n.b >= Math.max(lo, minBeat) && n.b < Math.min(hi, maxBeat) && (!tr.loop || n.b < tr.loop.end)) addCue(n, n.b);
+      else if (tr.loop && n.b + len >= lo && n.b + len < hi && n.b >= tr.loop.start && n.b < tr.loop.end) addCue(n, n.b + len);
     }
     this._lastKey = prevKey;
     this.app.lighting.prune();
     this.emit('progress', { beat: from, length: this.song.length, info });
   }
-  silence() { for (const ch of this.channels.values()) { /* vozes terminam naturalmente */ void ch; } }
+  silence() { for (const v of this.scheduledVoices) v.kill?.(); this.scheduledVoices.clear(); }
 
   // ───────────── entrada
   onInput(ev) {
     if (!this.active) return;
     if (this.mode === 'step') return this.stepInput(ev);
+    if (!this.app.transport.playing) return;
     if (this.mode === 'listen') return;
     const ol = this.app.engine.outputLatency;
     const r = this.evaluator.judge({ ...ev, time: ev.time - ol });
@@ -153,6 +162,7 @@ export class Practice extends Emitter {
     this.emit('judge', r);
   }
   sweep() {
+    if (!this.app.transport.playing) return;
     const now = this.app.engine.now - this.app.engine.outputLatency;
     const missed = this.evaluator.sweep(now);
     for (const c of missed) { this.app.lighting.mark(c, 'miss'); this.emit('judge', { grade: 'miss', cue: c }); }
@@ -197,13 +207,13 @@ export class Practice extends Emitter {
     this.emit('progress', { beat: group[0].b, length: this.song.length, step: this.stepIndex, total: this.notes.length });
   }
   stepInput(ev) {
-    if (!this.stepPending) return;
+    if (!this.stepPending?.size) return;
     if (this.stepPending.has(ev.midi)) {
       this.stepPending.delete(ev.midi);
       const cue = this.stepCues.find((c) => c.midi === ev.midi && c.state === 'pending');
       if (cue) { cue.waiting = false; this.app.lighting.mark(cue, 'hit'); }
       this.evaluator.results.push({ grade: 'perfect', ev, cue, offset: 0, velOk: true, techOk: true });
-      if (!this.stepPending.size) { this.stepIndex += this.stepCues.length; setTimeout(() => this.active && this.showStep(), 260); }
+      if (!this.stepPending.size) { this.stepIndex += this.stepCues.length; this.stepTimer = setTimeout(() => this.active && this.showStep(), 260); }
       this.emit('judge', { grade: 'perfect', cue });
     } else {
       this.evaluator.results.push({ grade: 'wrong', ev });
