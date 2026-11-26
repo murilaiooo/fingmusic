@@ -1,59 +1,51 @@
 /**
- * Modelo físico (visual) de corda: equação de onda 1D discretizada com
- * amortecimento, extremidades fixas. Suporta:
- *  - segurar um ponto e puxar (forma triangular com tensão acumulada);
- *  - soltar (a corda oscila e o pulso viaja e reflete nas pontas);
- *  - toque com impulso localizado (dedilhado/strum);
- *  - abafamento (amortecimento forte) e energia para a iluminação.
- * A frequência visual é escalada (não é a do áudio) para ser perceptível.
+ * Visual string: analytic, time-based vibration with fixed endpoints.
+ * The elastic shape follows the original Fingmusic instrument instead of
+ * numerically stepping a wave grid every animation frame.
  */
 export class StringModel {
   constructor(n = 36) {
-    this.n = n;
-    this.y = new Float32Array(n + 1);
-    this.v = new Float32Array(n + 1);
-    this.c2 = 0.5; // velocidade de onda² (em pontos por passo)
-    this.damping = 0.0035;
-    this.grab = null; // {t, offset}
-    this.dampUntil = 0;
+    this.n = n; this.y = new Float32Array(n + 1); this.v = new Float32Array(n + 1);
+    this.a = new Float32Array(n + 1); this.b = new Float32Array(n + 1);
+    for (let i=0;i<=n;i++) { this.a[i]=Math.sin(Math.PI*i/n); this.b[i]=Math.sin(2*Math.PI*i/n); }
+    this.a[0]=this.a[n]=this.b[0]=this.b[n]=0;
+    this.grab = null; this.amp = 0; this.kick = 0; this.age = 0; this.snapAge = 0; this.speed = .038; this.sign = 1;
+    this._energy = 0; this.damping = 1100;
   }
-  setPitch(midi) { this.c2 = Math.min(0.95, 0.25 + (midi - 24) / 70 * 0.6); }
-  /** Impulso gaussiano em t (0..1) com amplitude em px e direção (sinal). */
-  pluck(t, amp, width = 0.08) {
-    const n = this.n;
-    for (let i = 1; i < n; i++) {
-      const x = i / n, g = Math.exp(-((x - t) ** 2) / (2 * width * width));
-      this.v[i] += amp * g * 0.35;
-      this.y[i] += amp * g * 0.25 * Math.sin(Math.PI * x);
-    }
+  setPitch(midi) { this.speed = Math.max(.018, Math.min(.085, .03 + .05 * (midi-48)/36)); }
+  pluck(t, amp) {
+    this.amp = Math.min(28, Math.abs(amp) * .7 + this.amp * Math.exp(-this.age/this.damping) * .18);
+    this.sign = Math.sign(amp) || 1; this.age = 0; this.damping = 1100;
+    this.step(0);
   }
-  hold(t, offset) { this.grab = { t: Math.min(0.97, Math.max(0.03, t)), offset }; }
+  hold(t, offset) {
+    this.grab = { t: Math.max(.03,Math.min(.97,t)), offset };
+    this.amp = 0; this.kick = 0; this.step(0);
+  }
   release() {
     if (!this.grab) return 0;
-    const { t, offset } = this.grab;
-    this.grab = null;
-    // forma triangular inicial: soltar uma corda puxada
-    for (let i = 0; i <= this.n; i++) { const x = i / this.n; this.y[i] = offset * (x < t ? x / t : (1 - x) / (1 - t)); this.v[i] = 0; }
-    return offset;
+    const {offset}=this.grab; this.grab=null; this.kick=offset; this.snapAge=0; this.step(0); return offset;
   }
-  damp(ms = 180) { this.dampUntil = performance.now() + ms; }
+  damp() { this.amp *= Math.exp(-this.age/this.damping); this.age=0; this.damping=65; this.kick=0; }
   step(dtMs) {
-    const n = this.n, y = this.y, v = this.v;
-    if (this.grab) {
-      // corda presa no dedo: relaxa suavemente para a forma triangular
-      const { t, offset } = this.grab;
-      for (let i = 0; i <= n; i++) { const x = i / n, target = offset * (x < t ? x / t : (1 - x) / (1 - t)); y[i] += (target - y[i]) * 0.45; v[i] = 0; }
-      return;
+    const dt = Math.max(0,dtMs);
+    this.age += dt; this.snapAge += dt;
+    const g = this.grab, env = this.amp * Math.exp(-this.age/this.damping);
+    const snap = this.kick * Math.exp(-this.snapAge/220) * Math.cos(this.snapAge*.045);
+    if (!g && env < .025 && Math.abs(this.kick)*Math.exp(-this.snapAge/220) < .025) {
+      if (this._energy) this.y.fill(0); this._energy=0; this.amp=0; this.kick=0; return;
     }
-    const steps = Math.min(6, Math.max(1, Math.round(dtMs / 6)));
-    const extra = performance.now() < this.dampUntil ? 0.12 : 0;
-    const d = 1 - this.damping - extra;
-    for (let s = 0; s < steps; s++) {
-      for (let i = 1; i < n; i++) v[i] = (v[i] + this.c2 * (y[i - 1] - 2 * y[i] + y[i + 1])) * d;
-      for (let i = 1; i < n; i++) y[i] += v[i];
-      y[0] = y[n] = 0;
+    const phase = this.age*this.speed;
+    const a = snap + this.sign*env*Math.sin(phase);
+    const b = this.sign*env*.35*Math.sin(phase*2.1);
+    let e=0;
+    for(let i=1;i<this.n;i++) {
+      const x=i/this.n;
+      const stretch=g ? g.offset*(x<g.t?x/g.t:(1-x)/(1-g.t)) : 0;
+      const y=stretch+a*this.a[i]+b*this.b[i]; this.y[i]=y; e+=Math.abs(y);
     }
+    this.y[0]=this.y[this.n]=0; this._energy=e/this.n;
   }
-  energy() { let e = 0; for (let i = 1; i < this.n; i++) e += Math.abs(this.y[i]); return e / this.n; }
-  reset() { this.y.fill(0); this.v.fill(0); this.grab = null; }
+  energy() { return this._energy; }
+  reset() { this.y.fill(0); this.v.fill(0); this.grab=null; this.amp=0; this.kick=0; this._energy=0; }
 }
