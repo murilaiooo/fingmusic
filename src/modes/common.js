@@ -152,7 +152,10 @@ export function surfaceTools(app) {
     b.addEventListener('dblclick', () => set(!s.mods[key]));
     return b;
   };
-  if (kind === 'FretboardSurface') {
+  if (kind === 'StringsSurface') {
+    const gesture = segmented([['play', 'Tocar'], ['pull', 'Puxar']], s.gesture, v => { s.cancelAll(); s.gesture = v; });
+    out.push(gesture);
+  } else if (kind === 'FretboardSurface') {
     out.push(hold('Abafar', 'mute', 'Segure para palm mute'), hold('Harm.', 'harm', 'Segure para harmônicos'));
     const tap = btn('Tap', () => { s.mods.tap = !s.mods.tap; setPressed(tap, s.mods.tap); }, { cls: 'small', title: 'Tapping: tocar só pressionando o braço' });
     const pos = h('span.pill', {}, '');
@@ -167,6 +170,9 @@ export function surfaceTools(app) {
   } else if (kind === 'PadsSurface') {
     const rep = btn('Repetir notas', () => { s.repeat = !s.repeat; setPressed(rep, s.repeat); if (s.repeat && !app.transport.playing) toast('Repetição sincroniza com o metrônomo/jam'); }, { icon: 'repeat', cls: 'small' });
     out.push(rep, segmented([['0.5', '1/8'], ['0.25', '1/16'], ['0.125', '1/32']], String(s.repeatDiv), (v) => { s.repeatDiv = Number(v); }));
+  }
+  if (app.mode === 'play' && app.instrument.surface === 'fretboard') {
+    out.push(btn(kind === 'FretboardSurface' ? 'Cordas livres' : 'Braço com trastes', () => { app.update({ classicStrings: kind === 'FretboardSurface' }); app.setSurfaceOptions({}); }, { cls: 'small', title: 'Alternar entre cordas livres e braço com trastes' }));
   }
   return out;
 }

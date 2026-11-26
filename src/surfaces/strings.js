@@ -18,7 +18,7 @@ import { degreeToMidi, snapToScale } from '../theory/music.js';
 import { segCross, pointSegment, clamp, dist } from '../core/util.js';
 import { getInstrument } from '../instruments/catalog.js';
 
-const K = 36;
+const K = 28;
 let sid = 0;
 
 export class StringsSurface extends Surface {
@@ -27,19 +27,20 @@ export class StringsSurface extends Surface {
     this.strings = [];
     this.custom = opts.custom ?? null; // [{a:{x,y}, b:{x,y}, midi, hue?, inst?}] em coordenadas normalizadas
     this.tool = 'play'; // play | draw | edit
+    this.gesture = opts.gesture ?? 'play'; this.preferredOrient = opts.orient;
     this.selected = null;
     this.toys = opts.toys ?? false; // Playground: orbes com gravidade
     this.orbs = []; this.emitters = [];
     this.xs = new Float32Array(K + 1); this.ys = new Float32Array(K + 1);
   }
 
-  layout(rect) { super.layout(rect); this.rebuild(); }
+  layout(rect) { const p = this.rect; if (p.x === rect.x && p.y === rect.y && p.w === rect.w && p.h === rect.h) return; super.layout(rect); this.rebuild(); }
 
   notesForLayout() {
     if (this.fixedNotes) return this.fixedNotes;
     const L = this.inst.layout ?? { base: 48, count: 11 };
-    const portrait = this.rect.h > this.rect.w;
-    const maxBySpace = Math.max(5, Math.floor((portrait || L.orient === 'vertical' ? this.rect.w : this.rect.h) / 30));
+    const horizontal = (this.preferredOrient ?? L.orient) === 'horizontal';
+    const maxBySpace = Math.max(3, Math.floor((horizontal ? this.rect.h : this.rect.w) / 30));
     const count = Math.min(L.count ?? 11, maxBySpace);
     const scale = this.music.scale;
     const base = (L.base ?? 48) + this.music.octave * 12;
@@ -55,7 +56,7 @@ export class StringsSurface extends Surface {
       return;
     }
     const notes = this.notesForLayout(), n = notes.length;
-    const orient = this.inst.layout?.orient === 'vertical' || r.h > r.w * 1.05 ? 'vertical' : 'horizontal';
+    const orient = (this.preferredOrient ?? this.inst.layout?.orient) === 'horizontal' ? 'horizontal' : this.inst.layout?.orient === 'vertical' || r.h > r.w * 1.05 ? 'vertical' : 'horizontal';
     this.orient = orient;
     notes.forEach((m, i) => {
       const t = n > 1 ? i / (n - 1) : 0.5;
@@ -64,7 +65,7 @@ export class StringsSurface extends Surface {
         const pad = Math.min(36, r.w * 0.07), x = r.x + pad + (r.w - pad * 2) * t;
         a = { x, y: r.y + r.h * (0.04 + 0.26 * t) }; b = { x, y: r.y + r.h * (0.97 - 0.04 * t) };
       } else {
-        const pad = Math.min(30, r.h * 0.07), y = r.y + r.h - pad - (r.h - pad * 2) * t;
+        const pad = Math.min(30, r.h * 0.07), y = r.y + pad + (r.h - pad * 2) * t;
         a = { x: r.x + r.w * (0.05 + 0.18 * t), y }; b = { x: r.x + r.w * (0.97 - 0.03 * t), y };
       }
       this._addString(a, b, m, null, old);
@@ -104,10 +105,10 @@ export class StringsSurface extends Surface {
     const res = this.noteOn({ midi: s.midi, vel, pos: Math.min(t, 1 - t) * 2 * 0.5, tech: tech ?? (vel < 0.38 ? 'soft' : vel > 0.95 ? 'hard' : null), pan: ((p.x - this.rect.x) / this.rect.w) * 2 - 1, source, target: s.key, inst: s.inst });
     if (!res) { s.model.pluck(t, 4 * dir); return null; }
     s.ev = res.ev; s.voice = res.voice; s.ringUntil = now + 2500;
-    s.model.pluck(t, (8 + vel * 22) * dir);
+    s.model.pluck(t, (5 + vel * 17) * dir);
     const q = this.quality;
-    this.app.particles.burst(p.x, p.y, s.hue, Math.round((6 + vel * 26) * (q >= 2 ? 1 : q === 1 ? 0.5 : 0.25)), 0.6 + vel);
-    if (q >= 1) s.pulses.push({ t, dir: 1, e: vel }, { t, dir: -1, e: vel });
+    this.app.particles.burst(p.x, p.y, s.hue, Math.round((4 + vel * 10) * (q >= 2 ? 1 : q === 1 ? 0.6 : 0.25)), 0.6 + vel);
+    if (q >= 1) { s.pulses.push({ t, dir: 1, e: vel }, { t, dir: -1, e: vel }); if (s.pulses.length > 8) s.pulses.splice(0, s.pulses.length - 8); }
     this.pulse(vel * 0.6);
     return res;
   }
@@ -119,6 +120,7 @@ export class StringsSurface extends Surface {
     if (this.toys && !this.hit(p)) { this.addEmitter(p); return; }
     const h = this.hit(p);
     const st = { mode: h ? 'touch' : 'strum', s: h?.s, t: h?.t ?? 0, last: { x: p.x, y: p.y, t: p.t }, start: { x: p.x, y: p.y, t: p.t }, moved: 0, offset: 0, ticks: 0, vHist: [] };
+    if (h && this.gesture !== 'pull' && p.source !== 'hand') { this.pluck(h.s, .65, h.t, { source: p.source }); st.mode = 'strum'; }
     this.ptrs.set(p.id, st);
   }
   move(p) {
@@ -163,12 +165,12 @@ export class StringsSurface extends Surface {
       const vel = clamp(0.22 + k * 1.0 + rel * 0.05, 0.15, 1.35);
       const tech = k > 0.85 ? 'snap' : 'pull';
       const res = this.pluck(s, vel, st.t, { tech, dir: -Math.sign(off), source: p.source });
-      s.model.y.set(s.model.y); // forma triangular já aplicada por release()
+      // O modelo conserva a energia do estiramento e soma o ataque.
       const gp = { x: s.a.x + (s.b.x - s.a.x) * st.t, y: s.a.y + (s.b.y - s.a.y) * st.t };
       if (res) {
         this.app.particles.ring(gp.x, gp.y, s.hue, k);
         this.app.particles.burst(gp.x, gp.y, s.hue, Math.round(k * 40 * (this.quality ? 1 : 0.4)), 1 + k * 1.4);
-        if (k > 0.7) this.app.fx?.flash(s.hue, k);
+        // Feedback concentrado na corda, sem flash de tela inteira.
         this.pulse(0.5 + k * 0.5);
       }
       return;
@@ -270,17 +272,18 @@ export class StringsSurface extends Surface {
   render(ctx, now, dt) {
     if (this.toys) this.stepToys(dt);
     const q = this.quality, showNames = this.app.settings.showNames;
-    const order = this.app.lighting.cues.length ? null : null;
+    const reduce = this.app.settings.reduceMotion;
     for (const s of this.strings) {
       s.model.step(dt);
+      if (s.ev && (s.voice?.alive === false || now >= s.ringUntil)) { this.noteOff(s.ev); s.ev = null; }
       const m = s.model, dx = s.b.x - s.a.x, dy = s.b.y - s.a.y, len = s.len || 1, nx = -dy / len, ny = dx / len;
-      for (let i = 0; i <= K; i++) { const t = i / K; this.xs[i] = s.a.x + dx * t + nx * m.y[i]; this.ys[i] = s.a.y + dy * t + ny * m.y[i]; }
-      const e = Math.min(1, m.energy() / 4);
+      for (let i = 0; i <= K; i++) { const t = i / K; this.xs[i] = s.a.x + dx * t + nx * (reduce && !m.grab ? 0 : m.y[i]); this.ys[i] = s.a.y + dy * t + ny * (reduce && !m.grab ? 0 : m.y[i]); }
+      const e = Math.min(1, m.energy() / 9);
       const grabbed = m.grab ? Math.min(1, Math.abs(m.grab.offset) / 90) : 0;
       const fadeIn = Math.min(1, (now - s.born) / 300);
       const sel = this.selected === s;
-      const alpha = (0.55 + 0.45 * Math.max(e, grabbed)) * fadeIn;
-      const width = (1.4 + e * 1.2 - grabbed * 0.5) * (sel ? 1.6 : 1);
+      const alpha = (0.75 + 0.25 * Math.max(e, grabbed)) * fadeIn;
+      const width = (1.6 + e * .7) * (sel ? 1.35 : 1);
       // luz de aprendizado por baixo da corda
       this.drawLightLine(ctx, s.midi, s.key, s.a, s.b, s.hue);
       glowStroke(ctx, polyPath(ctx, this.xs, this.ys, K + 1), s.hue, alpha, width, q, 60 + grabbed * 20, 95 - grabbed * 40);
@@ -302,7 +305,7 @@ export class StringsSurface extends Surface {
       }
       // pulsos de luz correndo pela corda
       for (const p of s.pulses) {
-        p.t += p.dir * 0.0011 * dt * (0.6 + p.e);
+        p.t += p.dir * .9 * dt / Math.max(80, s.len);
         if (p.t < 0 || p.t > 1) { p.dead = true; continue; }
         const i = Math.round(p.t * K);
         ctx.fillStyle = `hsla(${s.hue},100%,92%,${0.8 * (1 - Math.abs(p.t - 0.5))})`;
@@ -322,6 +325,6 @@ export class StringsSurface extends Surface {
     // orbes e emissores
     for (const e of this.emitters) { ctx.strokeStyle = `hsla(${e.hue},100%,75%,.8)`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, 9, 0, 6.283); ctx.stroke(); ctx.fillStyle = `hsla(${e.hue},100%,75%,.25)`; ctx.fill(); }
     for (const o of this.orbs) { ctx.fillStyle = `hsla(${o.hue},100%,80%,.95)`; ctx.beginPath(); ctx.arc(o.x, o.y, 4.5, 0, 6.283); ctx.fill(); }
-    void order;
+
   }
 }

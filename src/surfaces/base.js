@@ -33,7 +33,7 @@ export class Surface {
   noteOn(o) { return this.app.performer.noteOn(o); }
   noteOff(ev) { this.app.performer.noteOff(ev); }
   lightOpts() { const L = this.app.lighting; return { reduce: L.reduceFlashes || this.app.settings.reduceMotion, contrast: L.highContrast, shapes: L.showShapes, t: performance.now() / 1000 }; }
-  light(midi, key) { return this.app.lighting.stateFor(midi, key, this.app.engine.now); }
+  light(midi, key) { return this.app.lighting.stateFor(midi, key); }
   drawLightLine(ctx, midi, key, a, b, hue, order) { const st = this.light(midi, key); if (st) lightLine(ctx, st, a, b, hue, { ...this.lightOpts(), order }); return st; }
   drawLightRect(ctx, midi, key, r, hue, radius) { const st = this.light(midi, key); if (st) lightRect(ctx, st, r, hue, { ...this.lightOpts(), radius }); return st; }
   isRoot(m) { return this.music.highlightRoots && isRoot(m, this.music.root); }

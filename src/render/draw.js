@@ -1,9 +1,10 @@
 /** Primitivas de desenho com brilho, ajustadas pela qualidade gráfica. */
 export function glowStroke(ctx, path, hue, alpha, width, quality = 2, light = 62, sat = 95) {
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  if (quality >= 2) { ctx.strokeStyle = `hsla(${hue},${sat}%,${light}%,${0.09 * alpha})`; ctx.lineWidth = width * 9; path(); ctx.stroke(); }
-  if (quality >= 1) { ctx.strokeStyle = `hsla(${hue},${sat}%,${light + 4}%,${0.28 * alpha})`; ctx.lineWidth = width * 3.4; path(); ctx.stroke(); }
-  ctx.strokeStyle = `hsla(${hue},100%,${Math.min(96, light + 26)}%,${alpha})`; ctx.lineWidth = width; path(); ctx.stroke();
+  path();
+  if (quality >= 2) { ctx.strokeStyle = `hsla(${hue},${sat}%,${light}%,${0.09 * alpha})`; ctx.lineWidth = width * 9; ctx.stroke(); }
+  if (quality >= 1) { ctx.strokeStyle = `hsla(${hue},${sat}%,${light + 4}%,${0.28 * alpha})`; ctx.lineWidth = width * 3.4; ctx.stroke(); }
+  ctx.strokeStyle = `hsla(${hue},100%,${Math.min(96, light + 26)}%,${alpha})`; ctx.lineWidth = width; ctx.stroke();
 }
 export function polyPath(ctx, xs, ys, n) { return () => { ctx.beginPath(); ctx.moveTo(xs[0], ys[0]); for (let i = 1; i < n; i++) ctx.lineTo(xs[i], ys[i]); }; }
 

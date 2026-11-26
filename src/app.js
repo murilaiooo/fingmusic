@@ -38,14 +38,14 @@ export class App extends Emitter {
     this.performer = new Performer(engine);
     this.lighting = new Lighting(() => engine.now - engine.outputLatency);
     this.applyLightingSettings();
-    this.particles = new Particles(900);
+    this.particles = new Particles(matchMedia('(pointer: coarse)').matches ? 240 : 500);
     this.haptics = haptics; haptics.setEnabled(s.haptics);
     this.studio = new Studio(this);
     this.practice = new Practice(this);
     this.genius = new GeniusController(this);
     this.tracker = null;
     this.mode = 'home';
-    this.qualityLevel = 2; this.frameMs = 16; this.slowFrames = 0; this.fastFrames = 0;
+    this.qualityLevel = matchMedia('(pointer: coarse)').matches ? 1 : 2; this.frameMs = 16; this.slowFrames = 0; this.fastFrames = 0;
     this.insets = { top: 64, bottom: 90, left: 0, right: 0 };
     this.flashes = [];
     this.saveSettingsSoon = debounce(() => saveSettings(this.settings), 300);
@@ -90,7 +90,9 @@ export class App extends Emitter {
     if (!silent) { this.settings.lastInstrument = inst.id; this.saveSettingsSoon(); }
     const fixed = this.surface?.fixedNotes ?? null;
     this.surface?.destroy();
-    this.surface = createSurface(this, inst, { ...this.surfaceOpts, ...surfaceOpts });
+    const opts = { ...this.surfaceOpts, ...surfaceOpts };
+    if (this.mode === 'play' && inst.surface === 'fretboard' && this.settings.classicStrings !== false && !opts.surface) { opts.surface = 'strings'; opts.orient = 'horizontal'; }
+    this.surface = createSurface(this, inst, opts);
     if (fixed && this.keepFixed) this.surface.fixedNotes = fixed;
     this.layoutSurface();
     if (this.liveChannel) {
@@ -186,8 +188,10 @@ export class App extends Emitter {
   // ───────────── laço de quadros
   frame(t) {
     requestAnimationFrame((x) => this.frame(x));
-    const dt = Math.min(50, t - (this.lastT ?? t)); this.lastT = t;
+    const dt = Math.min(100, t - (this.lastT ?? t)); this.lastT = t;
     this.adaptQuality(dt);
+    if (document.hidden) return;
+    if (!this.lastPrune || t - this.lastPrune > 400) { this.lighting.prune(); this.lastPrune = t; }
     if (this.tracker?.running) this.tracker.update(t, this.W, this.H);
     const ctx = this.ctx, W = this.W, H = this.H;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -216,12 +220,12 @@ export class App extends Emitter {
     else {
       if (this.frameMs > 24) this.slowFrames++; else this.slowFrames = Math.max(0, this.slowFrames - 1);
       if (this.frameMs < 14) this.fastFrames++; else this.fastFrames = 0;
-      if (this.slowFrames > 90 && q > 0) { q--; this.slowFrames = 0; }
-      if (this.fastFrames > 600 && q < 2) { q++; this.fastFrames = 0; }
+      if (this.slowFrames > 24 && q > 0) { q--; this.slowFrames = 0; }
+      if (this.fastFrames > 600 && q < (matchMedia('(pointer: coarse)').matches ? 1 : 2)) { q++; this.fastFrames = 0; }
     }
     if (q !== this.qualityLevel) {
       this.qualityLevel = q; this.applyDpr();
-      this.particles.setLimit([140, 380, 900][q]);
+      this.particles.setLimit([90, 240, 500][q]);
       if (this.tracker) this.tracker.maxFps = Math.min(this.settings.maxHandFps, [15, 24, 30][q]);
       this.emit('quality', q);
     }
@@ -239,7 +243,7 @@ export class App extends Emitter {
       ctx.restore();
     }
     // aurora reativa ao som (nível RMS); estática se "reduzir movimento"
-    const lvl = this.settings.reduceMotion ? 0.2 : this.engine.level();
+    const lvl = this.settings.reduceMotion ? 0.2 : this.qualityLevel === 0 ? 0.15 : this.engine.level();
     this.level = (this.level ?? 0) + (lvl - (this.level ?? 0)) * 0.12;
     const tint = this.backgroundTint ?? hue;
     const g = ctx.createRadialGradient(W * 0.5, H * 1.05, 0, W * 0.5, H * 1.05, Math.max(W, H) * (0.75 + this.level * 0.25));

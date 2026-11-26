@@ -34,6 +34,8 @@ export class Performer extends Emitter {
     const voice = this.monitor && !silent ? this.channel.play({ midi, vel, pos, tech: tech === 'soft' || tech === 'hard' || tech === 'pull' || tech === 'slide' ? (this.channel.inst.tech ?? null) : tech, pan, dur, inst }) : null;
     const ev = { id: ++seq, midi, vel, tech: tech ?? this.channel.inst.tech ?? 'finger', time, source, target, inst: this.channel.inst.id, pos };
     this.held.set(ev.id, ev);
+    // One-shot instruments can ring without keeping stale input events forever.
+    if (this.held.size > 256) this.noteOff(this.held.values().next().value);
     this.recent.push(midi); if (this.recent.length > 8) this.recent.shift();
     this.emit('noteon', ev);
     return { voice, ev };

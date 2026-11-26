@@ -26,12 +26,15 @@ export function renderModal(o) {
     const w = (2 * Math.PI * f) / sr, w2 = det ? w * det : 0;
     let e = amp, ph = random() * 6.283, ph2 = random() * 6.283;
     const att = Math.max(1, Math.floor(sr * (p.att ?? 0.0015)));
+    // Sine recurrence avoids two transcendental calls per sample/partial.
+    let y = Math.sin(ph), prev = Math.sin(ph-w), y2 = Math.sin(ph2), prev2 = Math.sin(ph2-w2);
+    const a1 = 2*Math.cos(w), a2 = 2*Math.cos(w2);
     for (let i = 0; i < len; i++) {
       const env = i < att ? i / att : 1;
-      out[i] += e * env * (det ? 0.5 * (Math.sin(ph) + Math.sin(ph2)) : Math.sin(ph));
-      ph += w; if (det) ph2 += w2;
-      e *= k;
-      if (e < 1e-5) break;
+      out[i] += e * env * (det ? 0.5 * (y+y2) : y);
+      const next=a1*y-prev; prev=y; y=next;
+      if(det){const next2=a2*y2-prev2;prev2=y2;y2=next2;}
+      e *= k; if (e < 1e-5) break;
     }
   }
   if (o.noise) {
