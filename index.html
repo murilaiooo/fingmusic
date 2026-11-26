@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Harpa no Ar</title>
+<style>
+:root{--ink:#f4efe6;--dim:rgba(244,239,230,.65);--accent:#ffcf6b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#05060a;color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
+/* vídeo fica invisível (o Safari para de atualizar vídeos com display:none) */
+#cam{position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block}
+.bar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:12px max(10px,env(safe-area-inset-left)) calc(14px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.75))}
+button,select{font:inherit;color:var(--ink);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:10px 16px;min-height:44px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);cursor:pointer}
+button:active{background:rgba(255,255,255,.25)}
+button.on{border-color:var(--accent);color:var(--accent)}
+select option{color:#000}
+.hud{position:fixed;top:calc(10px + env(safe-area-inset-top));left:14px;right:14px;display:flex;justify-content:space-between;font-size:13px;color:var(--dim);pointer-events:none}
+.hud b{color:var(--ink);font-weight:600}
+#intro{position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 35%,#1d1838,#05060a 70%);z-index:5;overflow:auto}
+.card{max-width:460px}
+h1{font-size:44px;line-height:1.05;margin:0 0 12px;font-weight:750;letter-spacing:-.02em}
+.card p{color:var(--dim);margin:0 0 10px}
+.card ul{padding-left:18px;margin:14px 0 22px}
+.card li{margin:7px 0}
+#go{background:var(--accent);color:#1a1206;border:0;font-weight:650;padding:14px 28px;font-size:17px}
+#msg{margin-top:14px;color:#ff9a8a;min-height:1.4em}
+#tip{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);width:min(90vw,420px);font-size:16px;color:var(--ink);text-align:center;pointer-events:none;transition:opacity .6s;text-shadow:0 1px 8px #000}
+</style>
+</head>
+<body>
+<video id="cam" playsinline muted autoplay></video>
+<canvas id="cv"></canvas>
+
+<div class="hud"><span><b>Harpa no Ar</b></span><span id="stat"></span></div>
+<div id="tip"></div>
+
+<div class="bar">
+  <button id="flip">Trocar câmera</button>
+  <button id="undo">Desfazer</button>
+  <button id="clear">Limpar</button>
+  <select id="scale" aria-label="Escala">
+    <option value="penta">Pentatônica</option>
+    <option value="maior">Maior</option>
+    <option value="menor">Menor</option>
+    <option value="japonesa">Japonesa</option>
+    <option value="blues">Blues</option>
+  </select>
+  <button id="pts">Pontos da mão</button>
+</div>
+
+<div id="intro">
+  <div class="card">
+    <h1>Harpa no Ar</h1>
+    <p>Desenhe cordas de luz no ar com as mãos e toque nelas. Corda curta = nota aguda, corda longa = nota grave.</p>
+    <ul>
+      <li><b>Criar corda:</b> junte polegar e indicador (pinça), arraste e solte.</li>
+      <li><b>Duas mãos:</b> faça a pinça com as duas mãos para esticar uma corda entre elas.</li>
+      <li><b>Tocar:</b> passe a ponta dos dedos pela corda. Mais rápido = mais forte.</li>
+      <li><b>Apagar tudo:</b> mão aberta parada por 2 segundos.</li>
+      <li>Também dá para tocar as cordas arrastando o dedo na tela.</li>
+    </ul>
+    <button id="go">Começar</button>
+    <div id="msg"></div>
+  </div>
+</div>
+
+<script type="module">
+import {FilesetResolver, HandLandmarker} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const $ = id => document.getElementById(id);
+const video = $('cam'), cv = $('cv'), ctx = cv.getContext('2d');
+let W = 0, H = 0;
+function resize(){
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+addEventListener('resize', resize); resize();
+
+/* ---------------- estado ---------------- */
+const strings = [];      // cordas fixas
+const sparks = [];       // faíscas
+const hands = {};        // estado por mão
+let twoHand = null;      // {keys:[k1,k2], a, b}
+let facing = 'user', stream = null, landmarker = null, showPts = false;
+let everSawHand = false, lastVideoTime = -1, lastProc = 0, fps = 0;
+
+const SCALES = {
+  penta:[0,2,4,7,9], maior:[0,2,4,5,7,9,11], menor:[0,2,3,5,7,8,10],
+  japonesa:[0,1,5,7,8], blues:[0,3,5,6,7,10]
+};
+let scale = 'penta';
+const NAMES = ['Dó','Dó#','Ré','Ré#','Mi','Fá','Fá#','Sol','Sol#','Lá','Lá#','Si'];
+const TIPS = [8, 12, 16, 20];
+
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const hueFor = m => 265 - (m - 48) / 36 * 225;   // grave = violeta, agudo = dourado
+
+/* comprimento -> nota (presa à escala, 3 oitavas a partir de Dó3) */
+function noteFor(len){
+  const diag = Math.hypot(W, H);
+  const r = Math.min(1, Math.max(0, (len / diag - 0.04) / 0.6));
+  const steps = SCALES[scale], total = steps.length * 3;
+  const i = Math.round((1 - r) * (total - 1));
+  const midi = 48 + Math.floor(i / steps.length) * 12 + steps[i % steps.length];
+  return { midi, freq: 440 * 2 ** ((midi - 69) / 12), name: NAMES[midi % 12] + (Math.floor(midi / 12) - 1) };
+}
+
+/* ---------------- áudio (Karplus-Strong) ---------------- */
+let ac = null, master = null;
+const cache = new Map();
+function initAudio(){
+  ac = new (window.AudioContext || window.webkitAudioContext)();
+  master = ac.createGain(); master.gain.value = .8;
+  const comp = ac.createDynamicsCompressor();
+  const rev = ac.createConvolver(); rev.buffer = impulse(2.6);
+  const wet = ac.createGain(); wet.gain.value = .35;
+  master.connect(comp); master.connect(rev); rev.connect(wet); wet.connect(comp);
+  comp.connect(ac.destination);
+}
+function impulse(sec){
+  const n = ac.sampleRate * sec | 0, b = ac.createBuffer(2, n, ac.sampleRate);
+  for (let c = 0; c < 2; c++){ const d = b.getChannelData(c); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n) ** 3; }
+  return b;
+}
+function ksBuffer(freq){
+  const key = Math.round(freq * 10);
+  if (cache.has(key)) return cache.get(key);
+  const sr = ac.sampleRate, len = sr * 3 | 0, N = Math.max(2, Math.round(sr / freq));
+  const buf = ac.createBuffer(1, len, sr), d = buf.getChannelData(0);
+  const ring = new Float32Array(N);
+  for (let i = 0; i < N; i++) ring[i] = Math.random() * 2 - 1;
+  for (let i = 1; i < N; i++) ring[i] = (ring[i] + ring[i - 1]) * .5;   // ataque mais macio
+  let p = 0;
+  for (let i = 0; i < len; i++){
+    const nx = (p + 1) % N, a = ring[p];
+    d[i] = a; ring[p] = (a + ring[nx]) * .5 * .998; p = nx;
+  }
+  for (let i = 0; i < 3000; i++) d[len - 1 - i] *= i / 3000;
+  cache.set(key, buf); return buf;
+}
+function play(freq, vel, pan){
+  if (!ac) return;
+  if (ac.state === 'suspended') ac.resume();
+  const src = ac.createBufferSource(); src.buffer = ksBuffer(freq);
+  const g = ac.createGain(); g.gain.value = .2 + .6 * Math.min(1, vel);
+  src.connect(g);
+  if (ac.createStereoPanner){ const p = ac.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)) * .7; g.connect(p); p.connect(master); }
+  else g.connect(master);
+  src.start();
+}
+
+/* ---------------- cordas e faíscas ---------------- */
+const ptOn = (s, t) => ({ x: s.a.x + (s.b.x - s.a.x) * t, y: s.a.y + (s.b.y - s.a.y) * t });
+
+function addString(a, b){
+  const len = dist(a, b);
+  if (len < 30) return;
+  const s = { a: {...a}, b: {...b}, len, ...noteFor(len), amp: 0, t0: 0, last: 0, born: performance.now(), pulses: [] };
+  s.hue = hueFor(s.midi);
+  strings.push(s);
+  if (strings.length > 40) strings.shift();
+  pluck(s, .55, .5, true);
+}
+function retune(){ for (const s of strings){ Object.assign(s, noteFor(s.len)); s.hue = hueFor(s.midi); } }
+
+function pluck(s, vel, t, force){
+  const now = performance.now();
+  if (!force && (now - s.last < 140 || now - s.born < 350)) return;
+  s.last = now; s.amp = Math.min(1.3, .35 + vel); s.t0 = now;
+  const p = ptOn(s, t);
+  play(s.freq, vel, p.x / W * 2 - 1);
+  burst(p.x, p.y, s.hue, 8 + vel * 26 | 0, .6 + vel);
+  s.pulses.push({ t, dir: 1 }, { t, dir: -1 });     // faíscas correndo pela corda
+}
+function burst(x, y, hue, n, pow){
+  for (let i = 0; i < n; i++){
+    const a = Math.random() * 6.283, sp = (.04 + Math.random() * .22) * pow;
+    sparks.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - .04, life: 1, hue: hue + Math.random() * 30 - 15 });
+  }
+  if (sparks.length > 700) sparks.splice(0, sparks.length - 700);
+}
+function clearAll(){
+  for (const s of strings) for (let i = 0; i <= 6; i++){ const p = ptOn(s, i / 6); burst(p.x, p.y, s.hue, 4, .8); }
+  strings.length = 0;
+}
+
+/* interseção de segmentos: devolve posição t na corda ou -1 */
+function cross(p, q, a, b){
+  const rx = q.x - p.x, ry = q.y - p.y, sx = b.x - a.x, sy = b.y - a.y;
+  const den = rx * sy - ry * sx;
+  if (Math.abs(den) < 1e-6) return -1;
+  const ax = a.x - p.x, ay = a.y - p.y;
+  const u = (ax * sy - ay * sx) / den, t = (ax * ry - ay * rx) / den;
+  return (u >= 0 && u <= 1 && t >= 0 && t <= 1) ? t : -1;
+}
+function strumSegment(prev, cur, dt){
+  const m = dist(prev, cur);
+  if (m < 4) return;
+  const vel = Math.min(1, Math.max(.15, m / Math.max(dt, 8) / 1.6));
+  for (const s of strings){ const t = cross(prev, cur, s.a, s.b); if (t >= 0) pluck(s, vel, t); }
+}
+
+/* ---------------- câmera e modelo ---------------- */
+async function startCam(){
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false
+  });
+  video.srcObject = stream;
+  await video.play();
+}
+async function loadModel(){
+  const fs = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+  const opts = delegate => ({
+    baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate },
+    runningMode: "VIDEO", numHands: 2,
+    minHandDetectionConfidence: .5, minHandPresenceConfidence: .5, minTrackingConfidence: .5
+  });
+  try { return await HandLandmarker.createFromOptions(fs, opts("GPU")); }
+  catch (e) { return await HandLandmarker.createFromOptions(fs, opts("CPU")); }
+}
+function toScreen(lm){
+  const vw = video.videoWidth, vh = video.videoHeight, s = Math.max(W / vw, H / vh);
+  let x = (W - vw * s) / 2 + lm.x * vw * s;
+  if (facing === 'user') x = W - x;            // espelho na câmera frontal
+  return { x, y: (H - vh * s) / 2 + lm.y * vh * s };
+}
+
+/* ---------------- gestos ---------------- */
+function processHands(res, now){
+  const dt = lastProc ? now - lastProc : 16; lastProc = now;
+  const lms = res?.landmarks || [];
+  const seen = [];
+  lms.forEach((lm, i) => {
+    let key = res.handedness?.[i]?.[0]?.categoryName || 'h' + i;
+    if (seen.includes(key)) key += '2';
+    seen.push(key);
+    const h = hands[key] || (hands[key] = { pinch: false, lock: false, drag: null, pts: null, prev: {}, palmT: 0, cool: 0 });
+    const raw = lm.map(toScreen);
+    if (!h.pts) h.pts = raw.map(p => ({...p}));
+    else raw.forEach((p, j) => { const q = h.pts[j]; q.x += (p.x - q.x) * .6; q.y += (p.y - q.y) * .6; });
+    const P = h.pts, size = dist(P[0], P[9]) || 1;
+    const d = dist(P[4], P[8]) / size;
+    const was = h.pinch;
+    if (!h.pinch && d < .33) h.pinch = true; else if (h.pinch && d > .5) h.pinch = false;
+    if (was && !h.pinch) h.cool = now + 250;
+    h.pp = { x: (P[4].x + P[8].x) / 2, y: (P[4].y + P[8].y) / 2 };
+
+    // mão aberta parada -> apagar
+    const open = !h.pinch && TIPS.every(ti => dist(P[ti], P[0]) > dist(P[ti - 2], P[0]) * 1.12);
+    const mv = h.lastWrist ? dist(P[0], h.lastWrist) : 0; h.lastWrist = {...P[0]};
+    if (!open) h.palmT = 0;
+    else if (mv < size * .06 && strings.length){ h.palmT += dt; if (h.palmT > 2000){ clearAll(); h.palmT = -1e9; } }
+    else h.palmT = Math.max(0, h.palmT - dt * 2);
+  });
+  for (const k in hands) if (!seen.includes(k)){ if (twoHand && twoHand.keys.includes(k)) twoHand = null; delete hands[k]; }
+  if (seen.length) everSawHand = true;
+
+  // corda com duas mãos
+  const free = seen.filter(k => hands[k].pinch && !hands[k].lock);
+  if (twoHand){
+    const [A, B] = twoHand.keys.map(k => hands[k]);
+    if (A.pinch && B.pinch){ twoHand.a = {...A.pp}; twoHand.b = {...B.pp}; }
+    else { addString(twoHand.a, twoHand.b); A.lock = A.pinch; B.lock = B.pinch; twoHand = null; }
+  } else if (free.length >= 2){
+    const keys = free.slice(0, 2);
+    twoHand = { keys, a: {...hands[keys[0]].pp}, b: {...hands[keys[1]].pp} };
+    keys.forEach(k => hands[k].drag = null);
+  }
+
+  for (const k of seen){
+    const h = hands[k];
+    if (!h.pinch) h.lock = false;
+    const inTwo = twoHand && twoHand.keys.includes(k);
+    if (!inTwo){
+      if (h.pinch && !h.lock){
+        if (!h.drag) h.drag = { a: {...h.pp}, b: {...h.pp} };
+        else h.drag.b = {...h.pp};
+      } else if (h.drag){ addString(h.drag.a, h.drag.b); h.drag = null; }
+    }
+    // tocar com as pontas dos dedos
+    if (!h.pinch && now > h.cool) for (const ti of TIPS) if (h.prev[ti]) strumSegment(h.prev[ti], h.pts[ti], dt);
+    for (const ti of TIPS) h.prev[ti] = {...h.pts[ti]};
+  }
+}
+
+/* ---------------- desenho ---------------- */
+function glowPath(pts, hue, alpha, thick){
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = `hsla(${hue},95%,60%,${.10 * alpha})`; ctx.lineWidth = 16 * thick; ctx.stroke();
+  ctx.strokeStyle = `hsla(${hue},95%,65%,${.30 * alpha})`; ctx.lineWidth = 5 * thick; ctx.stroke();
+  ctx.strokeStyle = `hsla(${hue},100%,90%,${alpha})`; ctx.lineWidth = 1.7 * thick; ctx.stroke();
+}
+function label(text, x, y, hue, a){
+  ctx.font = '600 13px system-ui,sans-serif'; ctx.textAlign = 'center';
+  ctx.fillStyle = `hsla(${hue},90%,82%,${a})`; ctx.fillText(text, x, y);
+}
+function drawString(s, now, dt){
+  const age = now - s.t0, env = s.amp * Math.exp(-age / 1100);
+  const dx = s.b.x - s.a.x, dy = s.b.y - s.a.y, nx = -dy / s.len, ny = dx / s.len;
+  const sp = .03 + .05 * (s.midi - 48) / 36, ph = age * sp, K = 28, pts = [];
+  for (let i = 0; i <= K; i++){
+    const t = i / K;
+    const off = env * 14 * (Math.sin(Math.PI * t) * Math.sin(ph) + .35 * Math.sin(2 * Math.PI * t) * Math.sin(ph * 2.1));
+    pts.push([s.a.x + dx * t + nx * off, s.a.y + dy * t + ny * off]);
+  }
+  const fadeIn = Math.min(1, (now - s.born) / 250);
+  glowPath(pts, s.hue, (.75 + .25 * Math.min(1, env)) * fadeIn, 1 + env * .6);
+  for (const e of [s.a, s.b]){ ctx.fillStyle = `hsla(${s.hue},100%,85%,.9)`; ctx.beginPath(); ctx.arc(e.x, e.y, 3, 0, 7); ctx.fill(); }
+  if (env > .08) label(s.name, (s.a.x + s.b.x) / 2 + nx * 22, (s.a.y + s.b.y) / 2 + ny * 22, s.hue, Math.min(1, env));
+  // pulsos de faísca
+  for (const p of s.pulses){
+    p.t += p.dir * .9 * dt / s.len;
+    if (p.t < 0 || p.t > 1) { p.dead = true; continue; }
+    const q = ptOn(s, p.t);
+    const g = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, 14);
+    g.addColorStop(0, `hsla(${s.hue},100%,92%,.95)`); g.addColorStop(1, `hsla(${s.hue},100%,60%,0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(q.x, q.y, 14, 0, 7); ctx.fill();
+    if (Math.random() < .6) burst(q.x, q.y, s.hue, 1, .5);
+  }
+  s.pulses = s.pulses.filter(p => !p.dead);
+}
+function drawPreview(a, b){
+  const len = dist(a, b); if (len < 6) return;
+  const n = noteFor(len), hue = hueFor(n.midi);
+  const jit = Math.sin(performance.now() * .05) * .6;
+  glowPath([[a.x, a.y], [(a.x + b.x) / 2 + jit, (a.y + b.y) / 2 - jit], [b.x, b.y]], hue, .9, 1.25);
+  label(n.name, (a.x + b.x) / 2, (a.y + b.y) / 2 - 16, hue, .95);
+}
+const BONES = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+function drawHand(h){
+  const P = h.pts;
+  if (showPts){
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); for (const [i, j] of BONES){ ctx.moveTo(P[i].x, P[i].y); ctx.lineTo(P[j].x, P[j].y); } ctx.stroke();
+    ctx.fillStyle = 'rgba(120,255,170,.9)'; for (const p of P){ ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, 7); ctx.fill(); }
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.2;
+  for (const ti of [4, ...TIPS]){ ctx.beginPath(); ctx.arc(P[ti].x, P[ti].y, 6, 0, 7); ctx.stroke(); }
+  if (h.pinch){
+    const g = ctx.createRadialGradient(h.pp.x, h.pp.y, 0, h.pp.x, h.pp.y, 18);
+    g.addColorStop(0, 'rgba(255,230,160,1)'); g.addColorStop(1, 'rgba(255,200,100,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(h.pp.x, h.pp.y, 18, 0, 7); ctx.fill();
+  }
+  if (h.palmT > 150){
+    const c = P[9], pr = Math.min(1, h.palmT / 2000);
+    ctx.strokeStyle = 'rgba(255,140,120,.9)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(c.x, c.y, 46, -Math.PI / 2, -Math.PI / 2 + pr * 6.283); ctx.stroke();
+  }
+}
+function drawSparks(dt){
+  ctx.lineCap = 'round';
+  for (const p of sparks){
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vy += .0004 * dt; p.vx *= .99; p.life -= dt / 800;
+    if (p.life <= 0) continue;
+    ctx.strokeStyle = `hsla(${p.hue},100%,75%,${p.life})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 30, p.y - p.vy * 30); ctx.stroke();
+  }
+  for (let i = sparks.length - 1; i >= 0; i--) if (sparks[i].life <= 0) sparks.splice(i, 1);
+}
+
+let lastFrame = performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt = Math.min(50, now - lastFrame); lastFrame = now;
+  if (dt > 0) fps += (1000 / dt - fps) * .05;
+
+  if (landmarker && video.readyState >= 2 && video.currentTime !== lastVideoTime){
+    lastVideoTime = video.currentTime;
+    let res = null;
+    try { res = landmarker.detectForVideo(video, now); } catch (e) {}
+    processHands(res, now);
+  }
+
+  // fundo: câmera escurecida
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#05060a'; ctx.fillRect(0, 0, W, H);
+  if (video.videoWidth){
+    const vw = video.videoWidth, vh = video.videoHeight, s = Math.max(W / vw, H / vh);
+    ctx.save();
+    if (facing === 'user'){ ctx.translate(W, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(video, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
+    ctx.restore();
+    ctx.fillStyle = 'rgba(5,6,12,.62)'; ctx.fillRect(0, 0, W, H);
+  }
+
+  ctx.globalCompositeOperation = 'lighter';
+  for (const s of strings) drawString(s, now, dt);
+  for (const k in hands){ const h = hands[k]; if (h.drag) drawPreview(h.drag.a, h.drag.b); }
+  if (twoHand) drawPreview(twoHand.a, twoHand.b);
+  drawSparks(dt);
+  ctx.globalCompositeOperation = 'source-over';
+  for (const k in hands) drawHand(hands[k]);
+
+  $('stat').textContent = `${strings.length} corda${strings.length === 1 ? '' : 's'} · ${fps.toFixed(0)} fps`;
+  const tip = $('tip');
+  if (!landmarker) tip.textContent = 'Carregando o rastreamento das mãos…';
+  else if (!everSawHand) tip.textContent = 'Mostre a mão para a câmera';
+  else if (!strings.length) tip.textContent = 'Junte polegar e indicador, arraste e solte para criar uma corda';
+  else tip.textContent = '';
+  tip.style.opacity = tip.textContent ? 1 : 0;
+}
+
+/* ---------------- toque / mouse ---------------- */
+let ptr = null, ptrT = 0;
+cv.addEventListener('pointerdown', e => { ptr = { x: e.clientX, y: e.clientY }; ptrT = performance.now(); if (ac && ac.state === 'suspended') ac.resume(); });
+cv.addEventListener('pointermove', e => {
+  if (!ptr) return;
+  const now = performance.now(), cur = { x: e.clientX, y: e.clientY };
+  strumSegment(ptr, cur, now - ptrT); ptr = cur; ptrT = now;
+});
+addEventListener('pointerup', () => ptr = null);
+addEventListener('pointercancel', () => ptr = null);
+
+/* ---------------- botões ---------------- */
+$('undo').onclick = () => strings.pop();
+$('clear').onclick = clearAll;
+$('scale').onchange = e => { scale = e.target.value; retune(); };
+$('pts').onclick = e => { showPts = !showPts; e.currentTarget.classList.toggle('on', showPts); };
+$('flip').onclick = async () => {
+  facing = facing === 'user' ? 'environment' : 'user';
+  for (const k in hands) delete hands[k]; twoHand = null;
+  try { await startCam(); } catch (e) { facing = facing === 'user' ? 'environment' : 'user'; await startCam().catch(() => {}); }
+};
+
+$('go').onclick = async () => {
+  const msg = $('msg');
+  if (!navigator.mediaDevices?.getUserMedia){
+    msg.textContent = 'Câmera indisponível. Abra a página por um endereço https (ou localhost).';
+    return;
+  }
+  try { initAudio(); await ac.resume(); } catch (e) {}
+  msg.style.color = 'var(--dim)'; msg.textContent = 'Pedindo acesso à câmera…';
+  try { await startCam(); }
+  catch (e){ msg.style.color = ''; msg.textContent = 'Não consegui acessar a câmera. Verifique a permissão do navegador e tente de novo.'; return; }
+  $('intro').style.display = 'none';
+  try {
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    if (devs.filter(d => d.kind === 'videoinput').length < 2) $('flip').style.display = 'none';
+  } catch (e) {}
+  requestAnimationFrame(loop);
+  try { landmarker = await loadModel(); }
+  catch (e){ $('tip').textContent = 'Falha ao carregar o rastreamento das mãos. Verifique a internet e recarregue.'; }
+};
+</script>
+</body>
+</html>
