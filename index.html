@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>Harpa no Ar</title>
+<title>Fingmusic Studio</title>
 <style>
 :root{--ink:#f4efe6;--dim:rgba(244,239,230,.65);--accent:#ffcf6b}
 *{box-sizing:border-box}
@@ -29,45 +29,46 @@ h1{font-size:44px;line-height:1.05;margin:0 0 12px;font-weight:750;letter-spacin
 #tip{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);width:min(90vw,420px);font-size:16px;color:var(--ink);text-align:center;pointer-events:none;transition:opacity .6s;text-shadow:0 1px 8px #000}
 
 :root{--ink:#f5f5fb;--dim:#a8a9bc;--accent:#f4d38e} html,body{background:#090b15} #intro{touch-action:pan-y;background:radial-gradient(ellipse at 65% 12%,#352758 0,transparent 50%),radial-gradient(ellipse at 0% 95%,#15333e,transparent 55%),#090b15} .card{width:min(100%,480px);padding:24px 0}.eyebrow{letter-spacing:.24em;text-transform:uppercase;font-size:10px;color:#e7cc96;margin-bottom:18px}.hero{height:120px;display:flex;gap:13px;align-items:center;justify-content:center;margin:12px 0 24px;transform:skewX(-12deg)}.hero i{display:block;width:2px;height:var(--h);background:var(--c);box-shadow:0 0 14px 2px var(--c);border-radius:4px;opacity:.85} h1{font-size:clamp(42px,10vw,65px);letter-spacing:-.065em}.card p{font-size:16px;line-height:1.55}.actions{display:grid;gap:9px;margin-top:24px}#go{width:100%;border-radius:15px}#demo{border-radius:15px}.card .privacy{font-size:12px;margin-top:14px}.hud{align-items:center;gap:10px}.hud b{font-size:16px}.hud #stat{background:#11121bc9;border:1px solid #ffffff20;border-radius:99px;padding:7px 12px;font-variant-numeric:tabular-nums}.bar{gap:6px;padding-top:22px;align-items:center}.bar button,.bar select{font-size:12px;min-height:44px;padding:9px 12px;background:#131521e8;backdrop-filter:blur(14px)} .bar button.on{background:#f4d38e22} #tip{top:32%;font-size:14px} #status{position:fixed;top:calc(58px + env(safe-area-inset-top));left:14px;color:#f4d38e;font-size:12px;pointer-events:none} .hidden{display:none!important} #volume{width:75px;accent-color:var(--accent)} .vol{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--dim)} @media(max-width:380px){.hero{height:80px}.card{padding:8px 0}.bar button,.bar select{padding:8px 9px}.vol{display:none}} @media(max-height:620px){.hero{display:none}.card ul{margin:9px 0}.card{padding:8px 0}.actions{margin-top:12px}}
+
+:root{--accent:#a7f6d7;--ink:#f5f6ff;--dim:#a8b2c9}
+html,body{height:100dvh;overscroll-behavior:none}
+.hud{top:calc(8px + env(safe-area-inset-top));align-items:center}.hud b{font-size:19px;letter-spacing:-.05em}.hud small{font-size:10px;color:var(--accent);letter-spacing:.13em}.hud #stat{padding:5px 9px;font-size:11px}
+#status{top:calc(44px + env(safe-area-inset-top));font-size:11px}#tip{top:40%}
+.bar{display:grid;gap:6px;padding:16px max(8px,env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom));z-index:2;background:linear-gradient(transparent,#0b0e1bf5 20%)}
+.ctrl{display:flex;gap:5px;align-items:center;min-width:0}.ctrl>*{flex:1;min-width:0}
+.bar button,.bar select{font-size:12px;min-height:44px;white-space:nowrap;padding:7px 5px;border-radius:12px}.bar select{max-width:220px}
+.bar button.on{color:var(--accent);border-color:var(--accent);background:#a7f6d722}
+#record.on{color:#ff8fa4;border-color:#ff8fa4}
+#loopStatus{font-size:11px;line-height:15px;text-align:center;color:var(--dim)}
+#settings{position:fixed;right:10px;bottom:calc(var(--dock,140px) + 6px);z-index:4;width:min(340px,calc(100vw - 20px));max-height:calc(100dvh - var(--dock,140px) - 65px);overflow:auto;touch-action:pan-y;background:#141929fa;border:1px solid #ffffff30;border-radius:18px;padding:14px;box-shadow:0 10px 50px #0009}
+#settings h3{margin:0 0 9px;font-size:15px}.settinggrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.settinggrid label{font-size:11px;color:var(--dim);display:grid;gap:3px;min-width:0}.settinggrid button,.settinggrid select,.settinggrid input{width:100%;min-width:0;font-size:13px;border-radius:10px;padding:6px 8px}.settinggrid input[type=range]{accent-color:var(--accent);padding:0;min-height:36px}.wide{grid-column:1/-1}
+#go{background:var(--accent)}#intro .eyebrow{color:var(--accent)}#intro .card{max-width:520px}#intro ul{font-size:14px}
+@media(min-width:740px){.bar{width:min(780px,100%);left:50%;right:auto;transform:translateX(-50%);border-radius:20px 20px 0 0}.bar button,.bar select{font-size:14px}.ctrl{gap:9px}#settings{right:max(10px,calc((100vw - 780px)/2))}}
+@media(max-width:360px){.bar{padding-left:5px;padding-right:5px}.ctrl{gap:3px}.bar button,.bar select{font-size:11px;padding:5px 3px}}
+@media(max-height:480px) and (orientation:landscape){.bar{gap:3px;padding-top:5px}.bar button,.bar select{min-height:34px}#intro .hero{display:none}#intro h1{font-size:36px}#intro .card{padding:0}.actions{grid-template-columns:1fr 1fr;margin-top:6px}#intro ul{margin:6px 0}}
 </style>
 </head>
 <body>
 <video id="cam" playsinline muted autoplay></video>
 <canvas id="cv"></canvas>
 
-<div class="hud"><span><b>Harpa no Ar</b></span><span id="stat"></span></div>
+<div class="hud"><span><b>Fingmusic</b> <small>STUDIO 03</small></span><span id="stat"></span></div>
 <div id="status" role="status"></div><div id="tip"></div>
-
-<div class="bar">
-  <button id="mode">✎ Desenhar</button>
-  <button id="preset">♪ Harpa</button>
-  <button id="flip">Câmera ↻</button>
-  <button id="undo">Desfazer</button>
-  <button id="clear">Limpar</button>
-  <select id="scale" aria-label="Escala">
-    <option value="penta">Pentatônica</option>
-    <option value="maior">Maior</option>
-    <option value="menor">Menor</option>
-    <option value="japonesa">Japonesa</option>
-    <option value="blues">Blues</option>
-  </select>
-  <button id="pts">Mãos</button>
-  <button id="camera">Câmera</button>
-  <button id="mute" aria-label="Silenciar">Som</button>
-  <label class="vol">Vol. <input id="volume" type="range" min="0" max="100" value="65" aria-label="Volume"></label>
+<div class="bar" id="dock">
+<div class="ctrl"><select id="instrument" aria-label="Instrumento"><option value="harp">Harpa</option><option value="guitar">Violão</option><option value="electric">Guitarra elétrica</option><option value="bass">Baixo finger</option><option value="slap">Baixo slap</option><option value="pick">Baixo palheta</option><option value="sub">Sub bass</option><option value="keys">Piano elétrico</option><option value="synth">Synth lead</option><option value="bell">Sinos</option></select><button id="mode">Tocar</button><button id="preset">Cordas</button><button id="camera">Câmera</button><button id="openSettings" aria-expanded="false">Ajustes</button></div>
+<div class="ctrl"><button id="record">● REC</button><button id="loopPlay">▶ Loop</button><button id="metro">Click</button><button id="mute">Som</button></div><div id="loopStatus">Loop vazio · 100 BPM</div>
 </div>
-
+<aside id="settings" class="hidden"><h3>Ajustes do instrumento</h3><div class="settinggrid">
+<label>Escala<select id="scale"><option value="penta">Pentatônica</option><option value="maior">Maior</option><option value="menor">Menor</option><option value="japonesa">Japonesa</option><option value="blues">Blues</option><option value="chromatic">Cromática</option></select></label>
+<label>Tom<select id="root"></select></label><label>Oitava<select id="octave"><option value="-1">−1</option><option value="0" selected>Normal</option><option value="1">+1</option></select></label>
+<label>Layout<select id="layout"><option value="auto">Automático</option><option value="vertical">Vertical</option><option value="horizontal">Horizontal</option></select></label>
+<label>Volume<input id="volume" type="range" min="0" max="100" value="65"></label><label>BPM <span id="bpmText">100</span><input id="bpm" type="range" min="60" max="180" value="100"></label>
+<label>Loop<select id="bars"><option value="1">1 compasso</option><option value="2" selected>2 compassos</option><option value="4">4 compassos</option></select></label><label>Quantização<select id="quantize"><option value="0">Livre</option><option value="4">Semínima</option><option value="8">Colcheia</option><option value="16">Semicolcheia</option></select></label>
+<button id="flip">Trocar câmera</button><button id="pts">Pontos das mãos</button><button id="undo">Desfazer corda</button><button id="clear">Limpar cordas</button><button id="clearLoop" class="wide">Apagar gravação</button></div></aside>
 <div id="intro">
   <div class="card">
-    <div class="eyebrow">Laboratório sonoro · 02</div><h1>Harpa no Ar</h1><div class="hero" aria-hidden="true"><i style="--h:108px;--c:#9d8eff"></i><i style="--h:98px;--c:#ad9aff"></i><i style="--h:86px;--c:#b8aafa"></i><i style="--h:75px;--c:#c4badc"></i><i style="--h:65px;--c:#e0c8b7"></i><i style="--h:55px;--c:#f0cf9c"></i><i style="--h:45px;--c:#ffe19d"></i></div>
-    <p>Desenhe cordas de luz no ar com as mãos e toque nelas. Corda curta = nota aguda, corda longa = nota grave.</p>
-    <ul>
-      <li><b>Criar corda:</b> junte polegar e indicador (pinça), arraste e solte.</li>
-      <li><b>Duas mãos:</b> faça a pinça com as duas mãos para esticar uma corda entre elas.</li>
-      <li><b>Tocar:</b> passe a ponta dos dedos pela corda. Mais rápido = mais forte.</li>
-      <li><b>Apagar:</b> use Limpar. O gesto de apagar não interfere mais enquanto você toca.</li>
-      <li><b>Sem câmera:</b> desenhe ou toque com o dedo ou mouse.</li>
-    </ul>
+    <div class="eyebrow">Laboratório sonoro · 03</div><h1>Fingmusic</h1><div class="hero" aria-hidden="true"><i style="--h:108px;--c:#9d8eff"></i><i style="--h:98px;--c:#ad9aff"></i><i style="--h:86px;--c:#b8aafa"></i><i style="--h:75px;--c:#c4badc"></i><i style="--h:65px;--c:#e0c8b7"></i><i style="--h:55px;--c:#f0cf9c"></i><i style="--h:45px;--c:#ffe19d"></i></div>
+    <p>Transforme o ar ou a tela em um instrumento. Crie riffs, linhas de baixo e loops com as mãos.</p><ul><li><b>Tocar:</b> passe os dedos pelas cordas. Mais velocidade, mais força.</li><li><b>Puxar:</b> segure uma corda (pinça na câmera), estique e solte.</li><li><b>Desenhar:</b> arraste ou faça uma pinça para criar cordas.</li><li><b>Loop:</b> grave uma frase e toque outro instrumento por cima.</li></ul>
     <div class="actions"><button id="go">Começar com a câmera</button><button id="demo">Experimentar sem câmera</button></div><p class="privacy">O reconhecimento das mãos acontece no navegador. Nenhuma gravação é enviada pelo aplicativo.</p>
     <div id="msg"></div>
   </div>
@@ -80,13 +81,13 @@ const $ = id => document.getElementById(id);
 const video = $('cam'), cv = $('cv'), ctx = cv.getContext('2d');
 let W = 0, H = 0;
 let mode = "play", demo = true, running = false, cameraBusy = false, modelError = false, muted = false;
-let pointerDrag = null;
+let pointerDrag = null; let instrument="harp",root=0,octave=0,layout="auto",presetActive=false;
 function resize(){
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const oldW=W, oldH=H; W = innerWidth; H = innerHeight;
-  if(oldW && oldH){ for(const s of strings){ for(const p of [s.a,s.b]){p.x*=W/oldW;p.y*=H/oldH;} s.len=dist(s.a,s.b); Object.assign(s,noteFor(s.len)); s.hue=hueFor(s.midi); } }
+  if(oldW && oldH){ for(const s of strings){ for(const p of [s.a,s.b]){p.x*=W/oldW;p.y*=H/oldH;} s.len=dist(s.a,s.b); if(s.degree===undefined)Object.assign(s,noteFor(s.len)); s.hue=hueFor(s.midi); } }
   cv.width = W * dpr; cv.height = H * dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); updateDock(); if(oldW&&oldH&&presetActive)preset();
 }
 addEventListener('resize', resize); resize();
 
@@ -100,14 +101,19 @@ let everSawHand = false, lastVideoTime = -1, lastProc = 0, fps = 0;
 
 const SCALES = {
   penta:[0,2,4,7,9], maior:[0,2,4,5,7,9,11], menor:[0,2,3,5,7,8,10],
-  japonesa:[0,1,5,7,8], blues:[0,3,5,6,7,10]
+  japonesa:[0,1,5,7,8], blues:[0,3,5,6,7,10], chromatic:[0,1,2,3,4,5,6,7,8,9,10,11]
 };
 let scale = 'penta';
 const NAMES = ['Dó','Dó#','Ré','Ré#','Mi','Fá','Fá#','Sol','Sol#','Lá','Lá#','Si'];
 const TIPS = [8, 12, 16, 20];
+const INSTRUMENTS={harp:{base:48,count:9,color:260},guitar:{base:40,count:6,color:35},electric:{base:40,count:6,color:320},bass:{base:28,count:8,color:155},slap:{base:28,count:8,color:170},pick:{base:28,count:8,color:190},sub:{base:24,count:8,color:220},keys:{base:48,count:9,color:48},synth:{base:48,count:9,color:285},bell:{base:60,count:8,color:200}};
+function degreeNote(i){const steps=SCALES[scale],midi=INSTRUMENTS[instrument].base+root+octave*12+Math.floor(i/steps.length)*12+steps[i%steps.length];return {midi,freq:440*2**((midi-69)/12),name:NAMES[((midi%12)+12)%12]+(Math.floor(midi/12)-1)}}
+function updateDock(){document.documentElement.style.setProperty('--dock',$('dock').offsetHeight+'px')}
+function bounds(){const t=Math.max(66,$('status').getBoundingClientRect().bottom+14),b=$('dock').getBoundingClientRect().top-12;return {top:t,bottom:Math.max(t+55,b),left:Math.max(16,W*.09),right:Math.min(W-16,W*.91)}}
+
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-const hueFor = m => 265 - (m - 48) / 36 * 225;   // grave = violeta, agudo = dourado
+const hueFor = m => (INSTRUMENTS[instrument].color+(m-INSTRUMENTS[instrument].base-root-octave*12)*5)%360;   // grave = violeta, agudo = dourado
 
 /* comprimento -> nota (presa à escala, 3 oitavas a partir de Dó3) */
 function noteFor(len){
@@ -115,8 +121,7 @@ function noteFor(len){
   const r = Math.min(1, Math.max(0, (len / diag - 0.04) / 0.6));
   const steps = SCALES[scale], total = steps.length * 3;
   const i = Math.round((1 - r) * (total - 1));
-  const midi = 48 + Math.floor(i / steps.length) * 12 + steps[i % steps.length];
-  return { midi, freq: 440 * 2 ** ((midi - 69) / 12), name: NAMES[midi % 12] + (Math.floor(midi / 12) - 1) };
+  return degreeNote(i);
 }
 
 /* ---------------- áudio (Karplus-Strong) ---------------- */
@@ -125,9 +130,9 @@ const cache = new Map();
 function initAudio(){
   ac = new (window.AudioContext || window.webkitAudioContext)();
   master = ac.createGain(); master.gain.value = Number($("volume").value)/100;
-  const comp = ac.createDynamicsCompressor();
+  const comp = ac.createDynamicsCompressor();comp.threshold.value=-14;comp.ratio.value=5;comp.attack.value=.004;
   const rev = ac.createConvolver(); rev.buffer = impulse(2.6);
-  const wet = ac.createGain(); wet.gain.value = .35;
+  const wet = ac.createGain(); wet.gain.value = .19;
   master.connect(comp); master.connect(rev); rev.connect(wet); wet.connect(comp);
   comp.connect(ac.destination);
 }
@@ -152,38 +157,57 @@ function ksBuffer(freq){
   for (let i = 0; i < 3000; i++) d[len - 1 - i] *= i / 3000;
   cache.set(key, buf); return buf;
 }
-function play(freq, vel, pan){
-  if (!ac || muted) return;
-  if (ac.state === 'suspended') ac.resume();
-  const src = ac.createBufferSource(); src.buffer = ksBuffer(freq);
-  const g = ac.createGain(); g.gain.value = .2 + .6 * Math.min(1, vel);
-  src.connect(g);
-  if (ac.createStereoPanner){ const p = ac.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)) * .7; g.connect(p); p.connect(master); }
-  else g.connect(master);
-  src.onended=()=>{src.disconnect();g.disconnect();}; src.start();
+function play(freq,vel,pan,voice=instrument,track=true){
+ if(!ac)return;if(track)recordNote(freq,vel,pan,voice);if(muted)return;
+ if(ac.state==='suspended')ac.resume().catch(()=>{});
+ const now=ac.currentTime,power=Math.max(.05,Math.min(1.45,vel)),out=ac.createGain(),p=ac.createStereoPanner?ac.createStereoPanner():null;
+ if(p){p.pan.value=Math.max(-1,Math.min(1,pan))*.55;out.connect(p);p.connect(master);}else out.connect(master);
+ const cleanup=()=>{out.disconnect();if(p)p.disconnect()};
+ if(['harp','guitar','electric'].includes(voice)){const src=ac.createBufferSource(),f=ac.createBiquadFilter();src.buffer=ksBuffer(freq);f.type='lowpass';f.frequency.value=voice==='guitar'?1900+power*900:4500;src.connect(f);if(voice==='electric'){const sh=ac.createWaveShaper(),c=new Float32Array(1024);for(let i=0;i<c.length;i++)c[i]=Math.tanh((i/(c.length-1)*2-1)*(2+power*4));sh.curve=c;sh.oversample='2x';f.connect(sh);sh.connect(out);}else f.connect(out);out.gain.setValueAtTime((voice==='electric'?.16:.24)*power,now);out.gain.exponentialRampToValueAtTime(.001,now+(voice==='guitar'?1.45:2.7));src.onended=cleanup;src.start();return;}
+ const bass=['bass','slap','pick','sub'].includes(voice),f=ac.createBiquadFilter();f.type='lowpass';f.Q.value=voice==='synth'?4:.6;const cut=voice==='sub'?350:voice==='slap'?2300:voice==='pick'?1800:voice==='bass'?850:voice==='synth'?2500:5000;f.frequency.setValueAtTime(Math.max(freq*1.5,cut*(.5+power)),now);f.frequency.exponentialRampToValueAtTime(Math.max(freq*1.2,cut*.23),now+.24);f.connect(out);
+ const dur=voice==='sub'?.8:voice==='slap'?.48:voice==='bass'?1.1:voice==='pick'?.7:voice==='bell'?2.6:voice==='keys'?1.6:.85;
+ const partials=voice==='sub'?[[1,1,'sine'],[2,.12,'sine']]:voice==='bass'?[[1,1,'sine'],[2,.27,'triangle'],[3,.09,'sine']]:voice==='slap'?[[1,.8,'triangle'],[2,.3,'sawtooth'],[4,.12,'sine']]:voice==='pick'?[[1,.7,'triangle'],[2,.25,'sawtooth'],[3,.13,'sine']]:voice==='keys'?[[1,.8,'sine'],[2,.35,'sine'],[3,.08,'sine'],[7,.04,'sine']]:voice==='bell'?[[1,.7,'sine'],[2.01,.2,'sine'],[3.49,.16,'sine'],[5.4,.07,'sine']]:[[1,.45,'sawtooth'],[1.005,.28,'square'],[2,.09,'sine']];
+ out.gain.setValueAtTime(.001,now);out.gain.exponentialRampToValueAtTime((bass?.30:.19)*power,now+.009);out.gain.exponentialRampToValueAtTime(.001,now+dur);
+ partials.forEach(([ratio,amp,type],i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.value=freq*ratio;g.gain.value=amp;o.connect(g);g.connect(f);o.start(now);o.stop(now+dur+.03);if(!i)o.onended=cleanup;});
+ if(voice==='slap'||voice==='pick'){const n=ac.createBuffer(1,Math.ceil(ac.sampleRate*.055),ac.sampleRate),d=n.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.exp(-i/(d.length*.13));const src=ac.createBufferSource(),g=ac.createGain();src.buffer=n;g.gain.value=power*(voice==='slap'?.28:.12);src.connect(g);g.connect(out);src.start();}
 }
+let bpm=100,bars=2,recording=false,looping=false,recStart=0,loopStart=0,events=[],loopLength=0,lastElapsed=-1,lastClick=-1,metro=false,metroStart=0;
+const beatMs=()=>60000/bpm;
+function loopLabel(){ $('record').classList.toggle('on',recording);$('loopPlay').classList.toggle('on',looping);$('record').textContent=recording?'■ REC':'● REC';$('loopPlay').textContent=looping?'■ Loop':'▶ Loop';$('loopStatus').textContent=(recording?'Gravando':looping?'Reproduzindo':events.length?events.length+' notas gravadas':'Loop vazio')+' · '+bpm+' BPM';}
+function recordNote(freq,vel,pan,voice){if(!recording)return;let t=performance.now()-recStart;if(t>=loopLength)return;const q=Number($('quantize').value);if(q)t=Math.round(t/(beatMs()*4/q))*(beatMs()*4/q);t=Math.max(0,Math.min(loopLength-1,t));if(events.length<512)events.push({t,freq,vel,pan,voice});}
+function startLoop(now=performance.now()){if(!events.length)return;recording=false;events.sort((a,b)=>a.t-b.t);looping=true;loopStart=now;lastElapsed=-1;lastClick=-1;loopLabel();}
+function finishRec(){recording=false;if(events.length)startLoop();else loopLabel();}
+function clickSound(accent){if(!ac||muted)return;const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime;o.frequency.value=accent?1320:820;g.gain.setValueAtTime(.06,t);g.gain.exponentialRampToValueAtTime(.001,t+.055);o.connect(g);g.connect(master);o.start(t);o.stop(t+.06);o.onended=()=>{o.disconnect();g.disconnect()};}
+function transport(now){if(recording&&now-recStart>=loopLength)finishRec();if(looping&&loopLength>0){const e=now-loopStart,from=Math.max(lastElapsed,e-250);for(const n of events){const cycle=Math.floor((e-n.t)/loopLength),at=cycle*loopLength+n.t;if(cycle>=0&&at>from&&at<=e)play(n.freq,n.vel,n.pan,n.voice,false);}lastElapsed=e;}
+if(metro||recording){const origin=recording?recStart:looping?loopStart:metroStart,k=Math.floor((now-origin)/beatMs());if(k>=0&&k!==lastClick){lastClick=k;clickSound(k%4===0);}}}
+$('record').onclick=()=>{if(recording){finishRec();return;}looping=false;events=[];loopLength=beatMs()*4*bars;recStart=performance.now();lastClick=-1;recording=true;loopLabel();};
+$('loopPlay').onclick=()=>{if(recording){finishRec();return;}if(looping){looping=false;loopLabel();}else startLoop();};
+$('metro').onclick=()=>{metro=!metro;metroStart=performance.now();lastClick=-1;$('metro').classList.toggle('on',metro);};
+$('clearLoop').onclick=()=>{recording=looping=false;events=[];loopLabel();};
+$('bpm').oninput=e=>{if(recording||looping||events.length){e.target.value=bpm;return;}bpm=+e.target.value;$('bpmText').textContent=bpm;lastClick=-1;metroStart=performance.now();loopLabel();};
+$('bars').onchange=e=>{bars=+e.target.value;};
 
 /* ---------------- cordas e faíscas ---------------- */
 const ptOn = (s, t) => ({ x: s.a.x + (s.b.x - s.a.x) * t, y: s.a.y + (s.b.y - s.a.y) * t });
 
 function addString(a, b, silent=false){
   const len = dist(a, b);
-  if (len < 30) return;
+  if (len < 30) return; if(!silent)presetActive=false;
   const s = { a: {...a}, b: {...b}, len, ...noteFor(len), amp: 0, t0: 0, last: 0, born: performance.now(), pulses: [] };
   s.hue = hueFor(s.midi);
   strings.push(s);
   if (strings.length > 40) strings.shift();
   if(!silent) pluck(s, .55, .5, true);
 }
-function retune(){ for (const s of strings){ Object.assign(s, noteFor(s.len)); s.hue = hueFor(s.midi); } }
+function retune(){ for (const s of strings){ Object.assign(s,s.degree===undefined?noteFor(s.len):degreeNote(s.degree)); s.hue=hueFor(s.midi); } }
 
 function pluck(s, vel, t, force){
   const now = performance.now();
   if (!force && (now - s.last < 140 || now - s.born < 350)) return;
-  s.last = now; s.amp = Math.min(1.3, .35 + vel); s.t0 = now;
+  s.last = now; s.amp = Math.min(2.3, .35 + vel*1.3); s.t0 = now;
   const p = ptOn(s, t);
   play(s.freq, vel, p.x / W * 2 - 1);
-  burst(p.x, p.y, s.hue, 8 + vel * 26 | 0, .6 + vel);
+  burst(p.x, p.y, s.hue, 8 + vel * 32 | 0, .6 + vel);
   s.pulses.push({ t, dir: 1 }, { t, dir: -1 });     // faíscas correndo pela corda
 }
 function burst(x, y, hue, n, pow){
@@ -193,11 +217,12 @@ function burst(x, y, hue, n, pow){
   }
   if (sparks.length > 700) sparks.splice(0, sparks.length - 700);
 }
-function clearAll(){
-  for (const s of strings) for (let i = 0; i <= 6; i++){ const p = ptOn(s, i / 6); burst(p.x, p.y, s.hue, 4, .8); }
-  strings.length = 0;
-}
-function preset(){clearAll(); const count=9, top=H*.19, bottom=H*.72; for(let i=0;i<count;i++){const t=i/(count-1), x=W*(.13+.74*t); addString({x,y:top+(bottom-top)*t*.55},{x,y:bottom},true);} }
+function clearAll(){for(const s of strings)for(let i=0;i<=6;i++){const p=ptOn(s,i/6);burst(p.x,p.y,s.hue,3,.8);}strings.length=0;presetActive=false;}
+function preset(){clearAll();const box=bounds(),n=INSTRUMENTS[instrument].count,horizontal=layout==='horizontal'||(layout==='auto'&&['bass','slap','pick','sub','electric','guitar'].includes(instrument));for(let i=0;i<n;i++){const t=i/(n-1);let a,b;if(horizontal){const y=box.top+(box.bottom-box.top)*(.08+.84*t);a={x:box.left,y};b={x:box.right,y};}else{const x=box.left+(box.right-box.left)*t;a={x,y:box.top+(box.bottom-box.top)*t*.25};b={x,y:box.bottom};}addString(a,b,true);const st=strings[strings.length-1];if(st){st.degree=i;Object.assign(st,degreeNote(i));st.hue=hueFor(st.midi);}}presetActive=true;}
+function closest(p,limit=24){let best=null;for(const s of strings){if(s.grab)continue;const dx=s.b.x-s.a.x,dy=s.b.y-s.a.y,t=Math.max(.04,Math.min(.96,((p.x-s.a.x)*dx+(p.y-s.a.y)*dy)/(s.len*s.len))),q=ptOn(s,t),d=dist(p,q);if(d<limit&&(!best||d<best.d))best={s,t,d};}return best;}
+function grabAt(p){const hit=closest(p,Math.min(30,Math.max(15,W*.045)));if(!hit)return null;hit.s.grab={t:hit.t,offset:0};return hit.s;}
+function tug(s,p){if(!s?.grab)return;const q=ptOn(s,s.grab.t),nx=-(s.b.y-s.a.y)/s.len,ny=(s.b.x-s.a.x)/s.len,max=Math.min(115,Math.max(45,Math.min(W,H)*.24));s.grab.offset=Math.max(-max,Math.min(max,(p.x-q.x)*nx+(p.y-q.y)*ny));}
+function release(s,commit){if(!s?.grab)return;const {t,offset}=s.grab;s.grab=null;if(commit){s.kick=offset;pluck(s,Math.min(1.45,.24+Math.abs(offset)/62),t,true);}}
 
 /* interseção de segmentos: devolve posição t na corda ou -1 */
 function cross(p, q, a, b){
@@ -212,7 +237,7 @@ function strumSegment(prev, cur, dt){
   const m = dist(prev, cur);
   if (m < 4) return;
   const vel = Math.min(1, Math.max(.15, m / Math.max(dt, 8) / 1.6));
-  for (const s of strings){ const t = cross(prev, cur, s.a, s.b); if (t >= 0) pluck(s, vel, t); }
+  for (const s of strings){ const t = cross(prev, cur, s.a, s.b); if (t >= 0 && !s.grab) pluck(s, vel, t); }
 }
 
 /* ---------------- câmera e modelo ---------------- */
@@ -265,9 +290,14 @@ function processHands(res, now){
 
     h.palmT = 0; // apagar apenas explicitamente, evita perda acidental das cordas
   });
-  for (const k in hands) if (!seen.includes(k)){ hands[k].prev={}; if(now-hands[k].lastSeen>180){ if (twoHand && twoHand.keys.includes(k)) twoHand = null; delete hands[k]; } }
+  for (const k in hands) if (!seen.includes(k)){ hands[k].prev={}; if(now-hands[k].lastSeen>180){ release(hands[k].held,false); if (twoHand && twoHand.keys.includes(k)) twoHand = null; delete hands[k]; } }
   if (seen.length) everSawHand = true;
 
+  if(mode!=='draw'){twoHand=null;for(const k of seen){const h=hands[k];h.drag=null;
+    if(mode==='pull'){if(h.pinch){if(!h.held&&!h.lock){h.held=grabAt(h.pp);if(h.held)h.lock=true;}tug(h.held,h.pp);}else{release(h.held,true);h.held=null;h.lock=false;}}
+    else{if(!h.pinch&&now>h.cool)for(const ti of TIPS)if(h.prev[ti])strumSegment(h.prev[ti],h.pts[ti],dt);}
+    for(const ti of TIPS)h.prev[ti]={...h.pts[ti]};
+  }return;}
   // corda com duas mãos
   const free = seen.filter(k => hands[k].pinch && !hands[k].lock);
   if (twoHand){
@@ -292,7 +322,7 @@ function processHands(res, now){
       } else if (h.drag){ addString(h.drag.a, h.drag.b); h.drag = null; }
     }
     // tocar com as pontas dos dedos
-    if (!h.pinch && now > h.cool) for (const ti of TIPS) if (h.prev[ti]) strumSegment(h.prev[ti], h.pts[ti], dt);
+    // draw mode: do not strum accidentally
     for (const ti of TIPS) h.prev[ti] = {...h.pts[ti]};
   }
 }
@@ -316,13 +346,16 @@ function drawString(s, now, dt){
   const sp = .03 + .05 * (s.midi - 48) / 36, ph = age * sp, K = 28, pts = [];
   for (let i = 0; i <= K; i++){
     const t = i / K;
-    const off = env * 14 * (Math.sin(Math.PI * t) * Math.sin(ph) + .35 * Math.sin(2 * Math.PI * t) * Math.sin(ph * 2.1));
+    const g=s.grab,stretch=g?g.offset*(t<g.t?t/g.t:(1-t)/(1-g.t)):0;
+    const snap=!g?(s.kick||0)*Math.exp(-age/220)*Math.cos(age*.045)*Math.sin(Math.PI*t):0;
+    const off=stretch+snap+env*14*(Math.sin(Math.PI*t)*Math.sin(ph)+.35*Math.sin(2*Math.PI*t)*Math.sin(ph*2.1));
     pts.push([s.a.x + dx * t + nx * off, s.a.y + dy * t + ny * off]);
   }
   const fadeIn = Math.min(1, (now - s.born) / 250);
   glowPath(pts, s.hue, (.75 + .25 * Math.min(1, env)) * fadeIn, 1 + env * .6);
   for (const e of [s.a, s.b]){ ctx.fillStyle = `hsla(${s.hue},100%,85%,.9)`; ctx.beginPath(); ctx.arc(e.x, e.y, 3, 0, 7); ctx.fill(); }
-  if (env > .08) label(s.name, (s.a.x + s.b.x) / 2 + nx * 22, (s.a.y + s.b.y) / 2 + ny * 22, s.hue, Math.min(1, env));
+  const horiz=Math.abs(dx)>Math.abs(dy);label(s.name,horiz?s.a.x-13:s.b.x,horiz?s.a.y+4:s.b.y+18,s.hue,.85);
+  if(s.grab){const p=ptOn(s,s.grab.t);label('⚡ '+Math.round(Math.min(1,Math.abs(s.grab.offset)/80)*100)+'%',p.x+nx*s.grab.offset,p.y+ny*s.grab.offset-16,s.hue,1);}
   // pulsos de faísca
   for (const p of s.pulses){
     p.t += p.dir * .9 * dt / s.len;
@@ -378,7 +411,7 @@ let lastFrame = performance.now();
 function loop(now){
   requestAnimationFrame(loop);
   const dt = Math.min(50, now - lastFrame); lastFrame = now;
-  if (dt > 0) fps += (1000 / dt - fps) * .05;
+  if (dt > 0) fps += (1000 / dt - fps) * .05; transport(now);
 
   if (!demo && landmarker && video.readyState >= 2 && video.currentTime !== lastVideoTime){
     lastVideoTime = video.currentTime;
@@ -404,7 +437,7 @@ function loop(now){
   for (const s of strings) drawString(s, now, dt);
   for (const k in hands){ const h = hands[k]; if (h.drag) drawPreview(h.drag.a, h.drag.b); }
   if (twoHand) drawPreview(twoHand.a, twoHand.b);
-  if(pointerDrag) drawPreview(pointerDrag.a,pointerDrag.b);
+  for(const p of pointers.values())if(p.drag)drawPreview(p.drag.a,p.drag.b);
   drawSparks(dt);
   ctx.globalCompositeOperation = 'source-over';
   for (const k in hands) drawHand(hands[k]);
@@ -415,40 +448,44 @@ function loop(now){
   else if (modelError) tip.textContent = "Rastreamento indisponível. Use o modo sem câmera.";
   else if (!landmarker) tip.textContent = 'Carregando o rastreamento das mãos…';
   else if (!everSawHand) tip.textContent = 'Mostre a mão para a câmera';
-  else if (!strings.length) tip.textContent = 'Junte polegar e indicador, arraste e solte para criar uma corda';
+  else if (!strings.length) tip.textContent = "Use Desenhar e faça uma pinça, ou toque em Cordas";
   else tip.textContent = '';
   tip.style.opacity = tip.textContent ? 1 : 0;
 }
 
 /* ---------------- toque / mouse ---------------- */
-let ptr = null, ptrT = 0, ptrId=null;
-const xy=e=>({x:e.clientX,y:e.clientY});
-function nearPluck(p){ for(const s of strings){ const dx=s.b.x-s.a.x,dy=s.b.y-s.a.y,t=Math.max(0,Math.min(1,((p.x-s.a.x)*dx+(p.y-s.a.y)*dy)/(s.len*s.len))); if(dist(p,ptOn(s,t))<16) pluck(s,.5,t,false); } }
-cv.addEventListener('pointerdown', e => { if(ptrId!==null)return; ptrId=e.pointerId; cv.setPointerCapture(e.pointerId); ptr=xy(e); ptrT=performance.now(); if(ac && ac.state==='suspended')ac.resume(); if(mode==='draw')pointerDrag={a:ptr,b:ptr};else nearPluck(ptr); });
-cv.addEventListener('pointermove', e => {if(e.pointerId!==ptrId||!ptr)return; const now=performance.now(),cur=xy(e); if(pointerDrag)pointerDrag.b=cur;else strumSegment(ptr,cur,now-ptrT);ptr=cur;ptrT=now;});
-function finish(e,commit){if(e.pointerId!==ptrId)return;if(pointerDrag&&commit)addString(pointerDrag.a,xy(e));pointerDrag=null;ptr=null;ptrId=null;}
-cv.addEventListener('pointerup',e=>finish(e,true));cv.addEventListener('pointercancel',e=>finish(e,false));
+const pointers=new Map(),xy=e=>({x:e.clientX,y:e.clientY});
+function nearPluck(p){const hit=closest(p,18);if(hit)pluck(hit.s,.5,hit.t,false);}
+cv.addEventListener('pointerdown',e=>{if(pointers.has(e.pointerId))return;cv.setPointerCapture(e.pointerId);const p=xy(e),state={p,t:performance.now()};pointers.set(e.pointerId,state);if(ac&&ac.state==='suspended')ac.resume();if(mode==='draw')state.drag={a:p,b:p};else if(mode==='pull')state.held=grabAt(p);else nearPluck(p);});
+cv.addEventListener('pointermove',e=>{const st=pointers.get(e.pointerId);if(!st)return;const p=xy(e),now=performance.now();if(st.drag)st.drag.b=p;else if(mode==='pull'){if(!st.held)st.held=grabAt(p);tug(st.held,p);}else if(mode==='play')strumSegment(st.p,p,now-st.t);st.p=p;st.t=now;});
+function finish(e,commit){const st=pointers.get(e.pointerId);if(!st)return;if(st.drag&&commit)addString(st.drag.a,xy(e));release(st.held,commit);pointers.delete(e.pointerId);}
+cv.addEventListener('pointerup',e=>finish(e,true));cv.addEventListener('pointercancel',e=>finish(e,false));cv.addEventListener('lostpointercapture',e=>finish(e,false));
+addEventListener('keydown',e=>{if(!running||e.repeat||/INPUT|SELECT|BUTTON/.test(e.target.tagName))return;const i=Number(e.key)-1;if(Number.isInteger(i)&&i>=0&&i<strings.length&&i<9)pluck(strings[i],.78,.5,true);});
 
 /* ---------------- botões ---------------- */
-$('undo').onclick = () => strings.pop();
+$('undo').onclick = () => {strings.pop();presetActive=false;};
 $('clear').onclick = clearAll;
 $('scale').onchange = e => { scale = e.target.value; retune(); };
 $('pts').onclick = e => { showPts = !showPts; e.currentTarget.classList.toggle('on', showPts); };
-function setMode(m){mode=m; $('mode').classList.toggle('on',m==='draw');$('mode').textContent=m==='draw'?'♪ Tocar':'✎ Desenhar';}
-$('mode').onclick=()=>setMode(mode==='draw'?'play':'draw');
+function setMode(m){for(const p of pointers.values())release(p.held,false);pointers.clear();for(const h of Object.values(hands)){release(h.held,false);h.held=null;h.drag=null;h.lock=false;h.prev={};}twoHand=null;mode=m;$('mode').classList.toggle('on',m!=='play');$('mode').textContent={play:'Tocar',pull:'Puxar',draw:'Desenhar'}[m];syncUI();}
+$('mode').onclick=()=>setMode({play:'pull',pull:'draw',draw:'play'}[mode]);
+$('instrument').onchange=e=>{instrument=e.target.value;if(['bass','slap','pick','sub'].includes(instrument)){$('root').value='4';root=4;}else{$('root').value='0';root=0;}preset();};
+$('root').innerHTML=NAMES.map((n,i)=>'<option value="'+i+'">'+n+'</option>').join('');
+$('root').onchange=e=>{root=+e.target.value;retune();};$('octave').onchange=e=>{octave=+e.target.value;retune();};$('layout').onchange=e=>{layout=e.target.value;preset();};
+$('openSettings').onclick=()=>{const h=$('settings').classList.toggle('hidden');$('openSettings').setAttribute('aria-expanded',String(!h));};
 $('preset').onclick=()=>{preset();setMode('play');};
 $('mute').onclick=()=>{muted=!muted;$('mute').textContent=muted?'Mudo':'Som';$('mute').classList.toggle('on',muted);if(master)master.gain.value=muted?0:Number($('volume').value)/100;};
 $('volume').oninput=e=>{if(master&&!muted)master.gain.value=Number(e.target.value)/100;};
-function stopCamera(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;for(const k in hands)delete hands[k];twoHand=null;lastVideoTime=-1;}
-function syncUI(){ $('camera').textContent=demo?'Ativar câmera':'Sem câmera';$('flip').classList.toggle('hidden',demo);$('pts').classList.toggle('hidden',demo);$('status').textContent=demo?'Modo toque':modelError?'Rastreamento indisponível':'Modo gestos'; }
+function stopCamera(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;for(const k in hands){release(hands[k].held,false);delete hands[k];}twoHand=null;lastVideoTime=-1;}
+function syncUI(){ $('camera').textContent=demo?'Ativar câmera':'Sem câmera';$('flip').classList.toggle('hidden',demo);$('pts').classList.toggle('hidden',demo);$('status').textContent=(demo?'Toque':modelError?'Câmera indisponível':'Gestos')+' · '+({play:'Tocar / deslizar',pull:'Segurar, puxar e soltar',draw:'Criar cordas'}[mode]); }
 async function enter(){if(!ac)try{initAudio();}catch(e){} if(ac)ac.resume().catch(()=>{});$('intro').style.display='none';if(!running){running=true;requestAnimationFrame(loop);}}
 async function setCamera(on){if(cameraBusy)return;if(!on){demo=true;stopCamera();syncUI();return;} cameraBusy=true;modelError=false;$('status').textContent='Abrindo câmera…';try{if(!navigator.mediaDevices?.getUserMedia)throw Error('HTTPS necessário');await startCam();demo=false;everSawHand=false;syncUI();if(!landmarker)landmarker=await loadModel();}catch(e){modelError=true;demo=true;stopCamera();syncUI();$('status').textContent='Câmera ou modelo indisponível · modo toque';}finally{cameraBusy=false;}}
 $('flip').onclick=async()=>{if(demo||cameraBusy)return;cameraBusy=true;const previous=facing;facing=facing==='user'?'environment':'user';stopCamera();try{await startCam();}catch(e){facing=previous;try{await startCam();}catch(e){demo=true;stopCamera();}}finally{cameraBusy=false;syncUI();}};
 $('camera').onclick=()=>setCamera(demo);
 $('demo').onclick=async()=>{await enter();demo=true;preset();syncUI();};
-$('go').onclick=async()=>{await enter();await setCamera(true);if(demo&&!strings.length)preset();};
+$('go').onclick=async()=>{await enter();if(!strings.length)preset();await setCamera(true);};
 addEventListener('pagehide',()=>{stopCamera();demo=true;syncUI();});
-setMode('play');syncUI();
+setMode('play');syncUI();loopLabel();
 </script>
 </body>
 </html>
