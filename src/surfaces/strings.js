@@ -27,7 +27,7 @@ export class StringsSurface extends Surface {
     this.strings = [];
     this.custom = opts.custom ?? null; // [{a:{x,y}, b:{x,y}, midi, hue?, inst?}] em coordenadas normalizadas
     this.tool = 'play'; // play | draw | edit
-    this.gesture = opts.gesture ?? 'play';
+    this.gesture = opts.gesture ?? 'play'; this.preferredOrient = opts.orient;
     this.selected = null;
     this.toys = opts.toys ?? false; // Playground: orbes com gravidade
     this.orbs = []; this.emitters = [];
@@ -39,7 +39,7 @@ export class StringsSurface extends Surface {
   notesForLayout() {
     if (this.fixedNotes) return this.fixedNotes;
     const L = this.inst.layout ?? { base: 48, count: 11 };
-    const horizontal = L.orient === 'horizontal';
+    const horizontal = (this.preferredOrient ?? L.orient) === 'horizontal';
     const maxBySpace = Math.max(3, Math.floor((horizontal ? this.rect.h : this.rect.w) / 30));
     const count = Math.min(L.count ?? 11, maxBySpace);
     const scale = this.music.scale;
@@ -56,7 +56,7 @@ export class StringsSurface extends Surface {
       return;
     }
     const notes = this.notesForLayout(), n = notes.length;
-    const orient = this.inst.layout?.orient === 'horizontal' ? 'horizontal' : this.inst.layout?.orient === 'vertical' || r.h > r.w * 1.05 ? 'vertical' : 'horizontal';
+    const orient = (this.preferredOrient ?? this.inst.layout?.orient) === 'horizontal' ? 'horizontal' : this.inst.layout?.orient === 'vertical' || r.h > r.w * 1.05 ? 'vertical' : 'horizontal';
     this.orient = orient;
     notes.forEach((m, i) => {
       const t = n > 1 ? i / (n - 1) : 0.5;
@@ -65,7 +65,7 @@ export class StringsSurface extends Surface {
         const pad = Math.min(36, r.w * 0.07), x = r.x + pad + (r.w - pad * 2) * t;
         a = { x, y: r.y + r.h * (0.04 + 0.26 * t) }; b = { x, y: r.y + r.h * (0.97 - 0.04 * t) };
       } else {
-        const pad = Math.min(30, r.h * 0.07), y = r.y + r.h - pad - (r.h - pad * 2) * t;
+        const pad = Math.min(30, r.h * 0.07), y = r.y + pad + (r.h - pad * 2) * t;
         a = { x: r.x + r.w * (0.05 + 0.18 * t), y }; b = { x: r.x + r.w * (0.97 - 0.03 * t), y };
       }
       this._addString(a, b, m, null, old);
@@ -275,6 +275,7 @@ export class StringsSurface extends Surface {
     const reduce = this.app.settings.reduceMotion;
     for (const s of this.strings) {
       s.model.step(dt);
+      if (s.ev && (s.voice?.alive === false || now >= s.ringUntil)) { this.noteOff(s.ev); s.ev = null; }
       const m = s.model, dx = s.b.x - s.a.x, dy = s.b.y - s.a.y, len = s.len || 1, nx = -dy / len, ny = dx / len;
       for (let i = 0; i <= K; i++) { const t = i / K; this.xs[i] = s.a.x + dx * t + nx * (reduce && !m.grab ? 0 : m.y[i]); this.ys[i] = s.a.y + dy * t + ny * (reduce && !m.grab ? 0 : m.y[i]); }
       const e = Math.min(1, m.energy() / 9);
