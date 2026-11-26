@@ -24,7 +24,8 @@ export class Shell {
     document.body.append(this.ring, this.topbar, this.hud, this.dock, this.center, this.exitImm);
     // o instrumento ocupa o espaço entre barra superior e dock
     const ro = new ResizeObserver(() => this.syncInsets());
-    ro.observe(this.dock); ro.observe(this.topbar);
+    ro.observe(this.dock); ro.observe(this.topbar); ro.observe(this.hud);
+    app.on('resize', () => this.syncInsets());
     app.on('instrument', () => this.refreshChips());
     app.on('music', () => this.refreshChips());
     app.on('fx', () => this.refreshChips());
@@ -45,6 +46,7 @@ export class Shell {
     this.backBtn = btn(null, () => this.go('home'), { icon: 'back', cls: 'icon-only', title: 'Início' });
     this.modeLabel = h('span.brand', {}, '');
     this.topbar = h('header#topbar', {}, this.backBtn, this.instChip, this.keyChip, h('div.spacer'), h('div.tb-icons', {}, this.fxBtn, this.camBtn, this.immBtn, this.menuBtn));
+    this.fxBtn.classList.add('desktop-tool'); this.immBtn.classList.add('desktop-tool'); this.keyChip.classList.add('desktop-tool');
     this.settingsBtn = () => openSettingsSheet(this);
     void app;
   }
@@ -62,10 +64,20 @@ export class Shell {
   }
 
   syncInsets() {
-    const top = this.app.mode === 'home' || document.body.classList.contains('immersive') ? 8 : this.topbar.getBoundingClientRect().bottom;
-    const hudH = this.hud.childElementCount ? this.hud.getBoundingClientRect().height + 8 : 0;
-    const bottom = this.app.mode === 'home' ? 8 : innerHeight - this.dock.getBoundingClientRect().top;
-    this.app.setInsets({ top: Math.max(8, top + hudH), bottom: Math.max(8, bottom) });
+    const H = this.app.H || innerHeight;
+    const immersive = document.body.classList.contains('immersive');
+    if (this.app.mode === 'home') {
+      const home = document.getElementById('home');
+      const header = home?.querySelector('.hero-top');
+      const nav = home?.querySelector('.modes');
+      this.app.setInsets({ top: Math.max(8, (header?.getBoundingClientRect().bottom ?? 8) + 8), bottom: Math.max(8, H - (nav?.getBoundingClientRect().top ?? H) + 8) });
+      return;
+    }
+    const top = immersive ? 8 : this.topbar.getBoundingClientRect().bottom;
+    this.hud.style.setProperty('--hud-top', Math.ceil(top + 6) + 'px');
+    const hudBottom = !immersive && this.hud.childElementCount ? this.hud.getBoundingClientRect().bottom + 6 : top;
+    const bottom = immersive ? 8 : H - this.dock.getBoundingClientRect().top;
+    this.app.setInsets({ top: Math.max(8, hudBottom), bottom: Math.max(8, bottom) });
   }
 
   setDock(...rows) { clear(this.dock).append(...rows.flat().filter(Boolean)); this.syncInsets(); }
