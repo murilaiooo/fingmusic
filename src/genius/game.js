@@ -12,7 +12,7 @@
 import { Emitter } from '../core/emitter.js';
 import { generateSequence } from './generator.js';
 
-export const STATES = ['idle', 'countdown', 'demonstrating', 'awaiting', 'validating', 'roundComplete', 'failed', 'paused', 'gameOver'];
+export const STATES = ['idle', 'countdown', 'demonstrating', 'awaiting', 'validating', 'roundComplete', 'failed', 'paused', 'composing', 'gameOver'];
 
 export const MODES = {
   classic: { name: 'Clássico', desc: 'Uma nota nova por rodada. Um erro encerra a partida.' },
@@ -52,6 +52,7 @@ export class GeniusGame extends Emitter {
     this.round = 0;
     this.score = 0;
     this.correctNotes = 0;
+    this.maxCompletedLength = 0;
     this.mistakes = 0;
     this.timings = [];
     this.players = opts.players ?? 1;
@@ -72,7 +73,8 @@ export class GeniusGame extends Emitter {
       techniques: this.mode === 'technique' ? (opts.techniques ?? ['soft', 'hard', 'pull']) : null, genre: opts.genre,
     });
     this.length = opts.startLength ?? (this.mode === 'echo' ? 3 : this.mode === 'bass' ? 2 : 1);
-    if (this.mode === 'echo' && !isCustom) this.echoBase = 0;
+    this.length = Math.min(this.length, this.master.length);
+    if (this.mode === 'echo') this.echoBase = 0;
   }
 
   get sequence() {
@@ -180,6 +182,7 @@ export class GeniusGame extends Emitter {
       this.timings.push(r.score);
     }
     if (!rhythmOk) return this.fail('rhythm');
+    this.maxCompletedLength = Math.max(this.maxCompletedLength, this.expected.length);
     const pts = this.expected.length * 10 * (1 + Object.keys(DIFFICULTIES).indexOf(this.opts.difficulty ?? 'beginner') * 0.5) * (0.5 + rhythmScore / 2) * (this.mode === 'speed' ? 1 + (1 - this.speed) : 1);
     if (this.scored) { this.score += Math.round(pts); this.playerScores[this.player] += Math.round(pts); }
     this._set('roundComplete', { round: this.round, length: this.expected.length, rhythm: rhythmScore });
@@ -199,13 +202,19 @@ export class GeniusGame extends Emitter {
       this._set('composing', { player: this.player });
       return;
     }
+    if (this.mode !== 'echo' && this.length >= this.master.length) return this.gameOver();
     this.progress();
     this.demonstrate();
   }
 
   /** Dificuldade progressiva: alterna qual variável aumenta, nunca todas juntas. */
   progress() {
-    if (this.mode === 'echo') { this.echoBase += this.length; this.length = Math.min(8, 3 + Math.floor(this.round / 3)); return; }
+    if (this.mode === 'echo') {
+      this.echoBase += this.length;
+      this.length = Math.min(this.master.length, 8, 3 + Math.floor(this.round / 3));
+      if (this.echoBase + this.length > this.master.length) this.echoBase = 0;
+      return;
+    }
     this.length = Math.min(this.master.length, this.length + 1);
     if (this.mode === 'speed') this.speed = Math.max(this.diff.minNote / this.diff.noteSec, this.speed * this.diff.speedUp * this.diff.speedUp);
     else if (this.round % 4 === 0) this.speed = Math.max(this.diff.minNote / this.diff.noteSec, this.speed * this.diff.speedUp);
@@ -236,7 +245,7 @@ export class GeniusGame extends Emitter {
 
   gameOver() {
     this._clearTimers();
-    const best = this.mode === 'echo' ? this.round - 1 : Math.max(0, this.length - 1);
+    const best = this.maxCompletedLength;
     this.result = {
       mode: this.mode, difficulty: this.opts.difficulty ?? 'beginner', seed: this.opts.seed, round: this.round,
       maxLength: best, score: this.score, correct: this.correctNotes, mistakes: this.mistakes,
