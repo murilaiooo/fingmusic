@@ -320,3 +320,12 @@ input.text-input, select, textarea.text-input { font-size: 16px; }
 @media (prefers-reduced-motion: reduce) {
   .btn:active { transform: none; }
 }
+
+.speed-select { min-height: 44px; min-width: 72px; padding: 0 8px; color: var(--ink); border: 1px solid var(--line); background: var(--panel); border-radius: 10px; font-variant-numeric: tabular-nums; }
+#home .mode:nth-child(n+4) { background: transparent; border-color: transparent; }
+#home .mode:nth-child(n+4):active { background: var(--panel); }
+#home .mode:nth-child(2) .ic { color: var(--mint); }
+#home .mode:nth-child(3) .ic { color: var(--violet); }
+#home .mode:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+#dock .row .speed-select { flex: 0 0 auto; }
+@media (max-width: 640px) { #home .mode:nth-child(2), #home .mode:nth-child(3) { padding: 12px; } }
