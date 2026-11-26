@@ -27,7 +27,7 @@ export class Channel {
     this._mute = false; this._vol = volume;
     this.setVolume(volume); this.setPan(pan);
     if (instrument) this.setInstrument(instrument);
-    this._wireFx();
+    this._wireFx(true);
   }
 
   setInstrument(inst) {
@@ -44,7 +44,10 @@ export class Channel {
 
   /** Aplica o estado completo da pedaleira: {reverb:{on:true, params:{...}}, ...} */
   setFxState(state = {}) {
-    this.fxState = JSON.parse(JSON.stringify(state));
+    const next = JSON.parse(JSON.stringify(state));
+    if (JSON.stringify(next) === JSON.stringify(this.fxState)) return;
+    const topologyChanged = PEDAL_ORDER.some(id => !!next[id]?.on !== this.effects.has(id));
+    this.fxState = next;
     for (const id of PEDAL_ORDER) {
       const st = this.fxState[id];
       const has = this.effects.get(id);
@@ -52,14 +55,15 @@ export class Channel {
       else if (st?.on && has) for (const [k, v] of Object.entries(st.params ?? {})) has.set(k, v);
       else if (!st?.on && has) { this.effects.delete(id); const fx = has; setTimeout(() => fx.dispose(), 60); }
     }
-    this._wireFx();
+    if (topologyChanged) this._wireFx();
   }
   setFxParam(id, key, value) {
     const st = this.fxState[id] ?? (this.fxState[id] = { on: false, params: defaultParams(id) });
     st.params = { ...defaultParams(id), ...st.params, [key]: value };
     this.effects.get(id)?.set(key, value);
   }
-  _wireFx() {
+  _wireFx(immediate = false) {
+    clearTimeout(this.rewireTimer);
     const t = this.ctx.currentTime;
     // pequena rampa para evitar estalos ao religar
     this.fxOut.gain.cancelScheduledValues(t);
@@ -75,7 +79,7 @@ export class Channel {
       this.fxOut.gain.setValueAtTime(0.0001, t2);
       this.fxOut.gain.linearRampToValueAtTime(1, t2 + 0.02);
     };
-    if (this.ctx.state === 'running' && !(this.ctx instanceof (globalThis.OfflineAudioContext ?? Function))) setTimeout(rewire, 14); else rewire();
+    if (!immediate && this.ctx.state === 'running' && !(this.ctx instanceof (globalThis.OfflineAudioContext ?? Function))) this.rewireTimer = setTimeout(rewire, 14); else rewire();
   }
   syncTempo(bpm) { this.bpm = bpm; for (const fx of this.effects.values()) fx.sync?.(bpm); this.inserts?.sync(bpm); }
   tune(root) { this.root = root; this.inserts?.tune(root); }
@@ -87,6 +91,7 @@ export class Channel {
   play(opts) { return startVoice(this.ctx, this.voiceIn, opts.inst ?? this.inst, opts); }
 
   dispose() {
+    clearTimeout(this.rewireTimer);
     this.inserts?.dispose();
     for (const fx of this.effects.values()) fx.dispose();
     disconnectAll(this.voiceIn, this.fxIn, this.fxOut, this.gain, this.panner);
