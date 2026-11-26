@@ -44,7 +44,7 @@ const home = h('main#home', { 'aria-label': 'Início' },
   h('div.hint', {}, 'Experimente tocar nas cordas'),
   h('div', {},
     h('nav.modes', {}, ...MODES.map(([id, ic, name, desc, main]) => h('button.mode' + (main ? '.main' : ''), { type: 'button', onclick: () => { app.engine.unlock(); ui.go(id); } }, icon(ic), h('b', {}, name), h('small', {}, desc)))),
-    h('div.foot', {}, h('span', {}, 'Instrumentos de luz'), h('span', { id: 'ver' }, 'v' + (import.meta.env?.VITE_VERSION ?? '4.0.1')))),
+    h('div.foot', {}, h('span', {}, 'Instrumentos de luz'), h('span', { id: 'ver' }, 'v' + (import.meta.env?.VITE_VERSION ?? '4.1')))),
 );
 document.body.append(home);
 
