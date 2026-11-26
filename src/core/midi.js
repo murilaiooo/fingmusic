@@ -56,6 +56,7 @@ export function parseMidi(buffer) {
   if (id() !== 'MThd') throw new Error('Arquivo não é MIDI (cabeçalho MThd ausente).');
   const hlen = d.getUint32(p + 4); const format = d.getUint16(p + 8), ntr = d.getUint16(p + 10), div = d.getUint16(p + 12);
   if (div & 0x8000) throw new Error('MIDI com divisão SMPTE não é suportado.');
+  if (format > 1 || !div) throw new Error('Formato ou divisão MIDI não suportado.');
   const ppq = div; p += 8 + hlen;
   const tempos = [], tracks = []; let timeSig = [4, 4];
   for (let t = 0; t < ntr && p < d.byteLength; t++) {
@@ -78,7 +79,7 @@ export function parseMidi(buffer) {
         else if (mt === 0x58) timeSig = [data[0], 2 ** data[1]];
         else if (mt === 0x2f) break;
         status = 0;
-      } else if (status === 0xf0 || status === 0xf7) { q += readVar(); status = 0; }
+      } else if (status === 0xf0 || status === 0xf7) { const size = readVar(); q += size; status = 0; }
       else if (type === 0x90 || type === 0x80) {
         const note = d.getUint8(q++), vel = d.getUint8(q++), k = c * 128 + note;
         if (type === 0x90 && vel > 0) { if (!open.has(k)) open.set(k, []); open.get(k).push({ tick, vel }); }
