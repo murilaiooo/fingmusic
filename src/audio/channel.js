@@ -66,9 +66,11 @@ export class Channel {
     clearTimeout(this.rewireTimer);
     const t = this.ctx.currentTime;
     // pequena rampa para evitar estalos ao religar
-    this.fxOut.gain.cancelScheduledValues(t);
-    this.fxOut.gain.setValueAtTime(this.fxOut.gain.value, t);
-    this.fxOut.gain.linearRampToValueAtTime(0.0001, t + 0.012);
+    if (!immediate) {
+      this.fxOut.gain.cancelScheduledValues(t);
+      this.fxOut.gain.setValueAtTime(this.fxOut.gain.value, t);
+      this.fxOut.gain.linearRampToValueAtTime(0.0001, t + 0.012);
+    }
     const rewire = () => {
       this.fxIn.disconnect();
       for (const fx of this.effects.values()) { try { fx.output.disconnect(); } catch { /* */ } }
@@ -76,8 +78,8 @@ export class Channel {
       for (const id of PEDAL_ORDER) { const fx = this.effects.get(id); if (fx) { prev.connect(fx.input); prev = fx.output; fx.sync?.(this.bpm); } }
       prev.connect(this.fxOut);
       const t2 = this.ctx.currentTime;
-      this.fxOut.gain.setValueAtTime(0.0001, t2);
-      this.fxOut.gain.linearRampToValueAtTime(1, t2 + 0.02);
+      if (immediate) this.fxOut.gain.setValueAtTime(1, t2);
+      else { this.fxOut.gain.setValueAtTime(0.0001, t2); this.fxOut.gain.linearRampToValueAtTime(1, t2 + 0.02); }
     };
     if (!immediate && this.ctx.state === 'running' && !(this.ctx instanceof (globalThis.OfflineAudioContext ?? Function))) this.rewireTimer = setTimeout(rewire, 14); else rewire();
   }
