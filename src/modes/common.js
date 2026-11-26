@@ -171,6 +171,9 @@ export function surfaceTools(app) {
     const rep = btn('Repetir notas', () => { s.repeat = !s.repeat; setPressed(rep, s.repeat); if (s.repeat && !app.transport.playing) toast('Repetição sincroniza com o metrônomo/jam'); }, { icon: 'repeat', cls: 'small' });
     out.push(rep, segmented([['0.5', '1/8'], ['0.25', '1/16'], ['0.125', '1/32']], String(s.repeatDiv), (v) => { s.repeatDiv = Number(v); }));
   }
+  if (app.mode === 'play' && app.instrument.surface === 'fretboard') {
+    out.push(btn(kind === 'FretboardSurface' ? 'Cordas livres' : 'Braço com trastes', () => { app.update({ classicStrings: kind === 'FretboardSurface' }); app.setSurfaceOptions({}); }, { cls: 'small', title: 'Alternar entre cordas livres e braço com trastes' }));
+  }
   return out;
 }
 
